@@ -42,10 +42,14 @@ The app uses your Canvas API token to fetch events. Update `src/config/canvas.js
 - **React**: Frontend framework
 - **Vite**: Build tool and dev server
 - **react-big-calendar**: Calendar component
-- **moment**: Date handling
+- **date-fns**: Date handling
 
 ## API Endpoints
 
 - Calendar Events: `/api/v1/calendar_events`
 - Assignments: `/api/v1/courses/{course_id}/assignments`
 - Courses: `/api/v1/courses`
+
+---
+
+*Part of the simplesites collection - a demo site showcasing Canvas LMS integration*
