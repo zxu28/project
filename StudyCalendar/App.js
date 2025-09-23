@@ -76,20 +76,25 @@ END:VCALENDAR`;
         const event = new ICAL.Event(vevent);
         const startDate = event.startDate.toJSDate();
         const dateKey = startDate.toISOString().split('T')[0];
+        const timeText = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         
         // Add assignment to events
-        parsedEvents[dateKey] = {
-          ...parsedEvents[dateKey],
-          assignments: [
-            ...(parsedEvents[dateKey]?.assignments || []),
-            {
-              title: event.summary,
-              description: event.description,
-              time: startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              type: 'assignment'
-            }
-          ]
-        };
+        const existing = parsedEvents[dateKey]?.assignments || [];
+        const isDuplicate = existing.some(e => e.title === event.summary && e.time === timeText && e.type === 'assignment');
+        if (!isDuplicate) {
+          parsedEvents[dateKey] = {
+            ...parsedEvents[dateKey],
+            assignments: [
+              ...existing,
+              {
+                title: event.summary,
+                description: event.description,
+                time: timeText,
+                type: 'assignment'
+              }
+            ]
+          };
+        }
 
         // Generate study block for the day before
         const studyDate = new Date(startDate);
@@ -138,21 +143,25 @@ END:VCALENDAR`;
         const dateKey = startDate.toISOString().split('T')[0];
         const timeText = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        merged[dateKey] = {
-          ...merged[dateKey],
-          assignments: [
-            ...(merged[dateKey]?.assignments || []),
-            {
-              title,
-              description: ev.description || '',
-              time: timeText,
-              type: 'schedule',
-              course: ev.location || '',
-              category: '',
-              source: 'google',
-            }
-          ]
-        };
+        const existing = merged[dateKey]?.assignments || [];
+        const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'schedule');
+        if (!isDuplicate) {
+          merged[dateKey] = {
+            ...merged[dateKey],
+            assignments: [
+              ...existing,
+              {
+                title,
+                description: ev.description || '',
+                time: timeText,
+                type: 'schedule',
+                course: ev.location || '',
+                category: '',
+                source: 'google',
+              }
+            ]
+          };
+        }
       });
 
       setEvents(merged);
@@ -412,6 +421,7 @@ END:VCALENDAR`;
         />
       ) : (
         <View style={styles.eventsContainer}>
+          <Text style={styles.listTitle}>Assignments List</Text>
           <View style={styles.filtersRow}>
             <TextInput
               style={[styles.input, styles.filterInput]}
@@ -592,6 +602,9 @@ const styles = StyleSheet.create({
   calendar: {
     marginHorizontal: 16,
     marginBottom: 20,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
     borderRadius: 10,
     elevation: 3,
     shadowColor: '#000',
@@ -602,6 +615,16 @@ const styles = StyleSheet.create({
   eventsContainer: {
     flex: 1,
     paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+  },
+  listTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+    textAlign: 'left',
   },
   eventsTitle: {
     fontSize: 18,

@@ -4,7 +4,7 @@ import { COLORS } from '../constants/colors';
 import EventCard from './EventCard';
 
 const EventsList = ({ events = [], studyBlocks = [], selectedDate }) => {
-  const allEvents = [...events, ...studyBlocks];
+  const allEvents = [...events];
   
   // Sort events by time
   const sortedEvents = allEvents.sort((a, b) => {
@@ -66,6 +66,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
   title: {
     fontSize: 18,
