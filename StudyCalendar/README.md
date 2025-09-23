@@ -1,6 +1,6 @@
-# Study Calendar - React Native App
+# Study Calendar - Web App
 
-A simple React Native (Expo) mobile app that helps students manage their assignments and study schedules.
+A simple React Native (Expo) web app that helps students manage their assignments and study schedules.
 
 ## Features
 
@@ -22,14 +22,13 @@ A simple React Native (Expo) mobile app that helps students manage their assignm
 ### 🎨 Clean UI
 - Modern, intuitive design
 - Color-coded event types
-- Responsive layout for mobile devices
+- Responsive layout optimized for web browsers
 
 ## Setup Instructions
 
 ### Prerequisites
 - Node.js (version 14 or higher)
 - Expo CLI (`npm install -g @expo/cli`)
-- Expo Go app on your mobile device (for testing)
 
 ### Installation
 
@@ -44,10 +43,9 @@ A simple React Native (Expo) mobile app that helps students manage their assignm
    npm start
    ```
 
-3. **Run on device:**
-   - Scan the QR code with Expo Go app (iOS/Android)
-   - Or run `npm run ios` / `npm run android` for simulators
-   - Or run `npm run web` for web version
+3. **Open in browser:**
+   - The app will automatically open in your default web browser
+   - Or navigate to `http://localhost:8081` manually
 
 ## How It Works
 
@@ -108,6 +106,7 @@ StudyCalendar/
 - **react-native-calendars**: Calendar component library
 - **ical.js**: ICS/ICAL file parser
 - **react-native**: React Native framework
+- **react-native-web**: React Native for web browsers
 
 ## Future Enhancements
 
