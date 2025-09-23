@@ -15,16 +15,25 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar' | 'list'
+  const [googleConnected, setGoogleConnected] = useState(true);
+  const [filterClass, setFilterClass] = useState('');
+  const [filterFrom, setFilterFrom] = useState(''); // YYYY-MM-DD
+  const [filterTo, setFilterTo] = useState(''); // YYYY-MM-DD
+  const [filterCategory, setFilterCategory] = useState(''); // e.g., Homework/Exam/Project
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
     dueDate: '',
-    time: '23:59'
+    time: '23:59',
+    course: '',
+    category: '',
   });
 
   useEffect(() => {
     fetchCalendarEvents();
-    fetchGoogleEvents();
+    if (googleConnected) {
+      fetchGoogleEvents();
+    }
   }, []);
 
   const fetchCalendarEvents = async () => {
@@ -137,7 +146,10 @@ END:VCALENDAR`;
               title,
               description: ev.description || '',
               time: timeText,
-              type: 'assignment',
+              type: 'schedule',
+              course: ev.location || '',
+              category: '',
+              source: 'google',
             }
           ]
         };
@@ -147,6 +159,24 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error fetching Google events:', error);
     }
+  };
+
+  const disconnectGoogle = () => {
+    // Remove items that came from Google
+    const cleaned = Object.keys(events).reduce((acc, date) => {
+      const items = (events[date]?.assignments || []).filter(it => it.source !== 'google');
+      if (items.length > 0) {
+        acc[date] = { ...events[date], assignments: items };
+      }
+      return acc;
+    }, {});
+    setEvents(cleaned);
+    setGoogleConnected(false);
+  };
+
+  const connectGoogle = async () => {
+    setGoogleConnected(true);
+    await fetchGoogleEvents();
   };
 
   const getMarkedDates = () => {
@@ -215,6 +245,27 @@ END:VCALENDAR`;
     return [...dateEvents, ...dateStudyBlocks];
   };
 
+  const getAllAssignments = () => {
+    // Flatten all assignment-type items across dates
+    const all = [];
+    Object.keys(events).forEach(date => {
+      (events[date]?.assignments || []).forEach(item => {
+        if (item.type === 'assignment') {
+          all.push({ ...item, _date: date });
+        }
+      });
+    });
+
+    // Apply filters
+    return all.filter(item => {
+      if (filterClass && !(`${item.course || ''} ${item.title || ''}`.toLowerCase().includes(filterClass.toLowerCase()))) return false;
+      if (filterCategory && (item.category || '').toLowerCase() !== filterCategory.toLowerCase()) return false;
+      if (filterFrom && (item._date < filterFrom)) return false;
+      if (filterTo && (item._date > filterTo)) return false;
+      return true;
+    }).sort((a, b) => a._date.localeCompare(b._date));
+  };
+
   const addNewAssignment = () => {
     if (!newAssignment.title || !newAssignment.dueDate) {
       Alert.alert('Error', 'Please fill in assignment title and due date');
@@ -226,7 +277,10 @@ END:VCALENDAR`;
       title: newAssignment.title,
       description: newAssignment.description,
       time: newAssignment.time,
-      type: 'assignment'
+      type: 'assignment',
+      course: newAssignment.course,
+      category: newAssignment.category,
+      source: 'manual',
     };
 
     // Add assignment to events
@@ -291,6 +345,18 @@ END:VCALENDAR`;
           <Text style={[styles.switchButtonText, viewMode === 'list' && styles.switchButtonTextActive]}>List</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.googleControls}>
+        {googleConnected ? (
+          <TouchableOpacity style={[styles.googleBtn, styles.disconnectBtn]} onPress={disconnectGoogle}>
+            <Text style={styles.googleBtnText}>Disconnect Google Calendar</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[styles.googleBtn, styles.connectBtn]} onPress={connectGoogle}>
+            <Text style={styles.googleBtnText}>Connect Google Calendar</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       
       <TouchableOpacity 
         style={styles.addButton}
@@ -329,9 +395,40 @@ END:VCALENDAR`;
         />
       ) : (
         <View style={styles.eventsContainer}>
+          <View style={styles.filtersRow}>
+            <TextInput
+              style={[styles.input, styles.filterInput]}
+              placeholder="Filter by class/course or title"
+              value={filterClass}
+              onChangeText={setFilterClass}
+            />
+          </View>
+          <View style={styles.filtersRow}>
+            <TextInput
+              style={[styles.input, styles.filterHalf]}
+              placeholder="From (YYYY-MM-DD)"
+              value={filterFrom}
+              onChangeText={setFilterFrom}
+            />
+            <TextInput
+              style={[styles.input, styles.filterHalf]}
+              placeholder="To (YYYY-MM-DD)"
+              value={filterTo}
+              onChangeText={setFilterTo}
+            />
+          </View>
+          <View style={styles.filtersRow}>
+            <TextInput
+              style={[styles.input, styles.filterInput]}
+              placeholder="Category (e.g., homework, exam, project)"
+              value={filterCategory}
+              onChangeText={setFilterCategory}
+            />
+          </View>
+
           <EventsList 
-            events={events[selectedDate]?.assignments || []}
-            studyBlocks={studyBlocks[selectedDate]?.studyBlocks || []}
+            events={getAllAssignments()}
+            studyBlocks={[]}
             selectedDate={selectedDate}
           />
         </View>
@@ -398,6 +495,20 @@ END:VCALENDAR`;
               value={newAssignment.description}
               onChangeText={(text) => setNewAssignment({...newAssignment, description: text})}
               multiline
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Class/Course (optional)"
+              value={newAssignment.course}
+              onChangeText={(text) => setNewAssignment({...newAssignment, course: text})}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Category (homework / exam / project)"
+              value={newAssignment.category}
+              onChangeText={(text) => setNewAssignment({...newAssignment, category: text})}
             />
             
             <TextInput
