@@ -14,7 +14,7 @@ export default function App() {
   const [studyBlocks, setStudyBlocks] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' | 'list'
+  const [currentPage, setCurrentPage] = useState('home'); // 'home' | 'list'
   const [googleConnected, setGoogleConnected] = useState(true);
   const [filterClass, setFilterClass] = useState('');
   const [filterFrom, setFilterFrom] = useState(''); // YYYY-MM-DD
@@ -331,32 +331,54 @@ END:VCALENDAR`;
     <View style={styles.container}>
       <Text style={styles.title}>Study Calendar</Text>
 
-      <View style={styles.modeSwitch}>
-        <TouchableOpacity 
-          style={[styles.switchButton, viewMode === 'calendar' && styles.switchButtonActive]}
-          onPress={() => setViewMode('calendar')}
-        >
-          <Text style={[styles.switchButtonText, viewMode === 'calendar' && styles.switchButtonTextActive]}>Calendar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.switchButton, viewMode === 'list' && styles.switchButtonActive]}
-          onPress={() => setViewMode('list')}
-        >
-          <Text style={[styles.switchButtonText, viewMode === 'list' && styles.switchButtonTextActive]}>List</Text>
-        </TouchableOpacity>
-      </View>
+      {currentPage === 'home' && (
+        <View style={styles.primaryActionsRow}>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <Text style={styles.addButtonText}>+ Add Assignment</Text>
+          </TouchableOpacity>
 
-      <View style={styles.googleControls}>
-        {googleConnected ? (
-          <TouchableOpacity style={[styles.googleBtn, styles.disconnectBtn]} onPress={disconnectGoogle}>
-            <Text style={styles.googleBtnText}>Disconnect Google Calendar</Text>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setCurrentPage('list')}
+          >
+            <Text style={styles.addButtonText}>Open List View</Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={[styles.googleBtn, styles.connectBtn]} onPress={connectGoogle}>
-            <Text style={styles.googleBtnText}>Connect Google Calendar</Text>
+
+          {googleConnected ? (
+            <TouchableOpacity style={[styles.addButton, styles.disconnectBtn]} onPress={disconnectGoogle}>
+              <Text style={styles.addButtonText}>Disconnect Google</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[styles.addButton, styles.connectBtn]} onPress={connectGoogle}>
+              <Text style={styles.addButtonText}>Connect Google</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {currentPage === 'list' && (
+        <View style={styles.primaryActionsRow}>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setCurrentPage('home')}
+          >
+            <Text style={styles.addButtonText}>← Back to Calendar</Text>
           </TouchableOpacity>
-        )}
-      </View>
+
+          {googleConnected ? (
+            <TouchableOpacity style={[styles.addButton, styles.disconnectBtn]} onPress={disconnectGoogle}>
+              <Text style={styles.addButtonText}>Disconnect Google</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[styles.addButton, styles.connectBtn]} onPress={connectGoogle}>
+              <Text style={styles.addButtonText}>Connect Google</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       
       <TouchableOpacity 
         style={styles.addButton}
@@ -364,7 +386,7 @@ END:VCALENDAR`;
       >
         <Text style={styles.addButtonText}>+ Add Assignment</Text>
       </TouchableOpacity>
-      {viewMode === 'calendar' ? (
+      {currentPage === 'home' ? (
         <Calendar
           style={styles.calendar}
           current={selectedDate}
@@ -560,30 +582,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#333',
   },
-  modeSwitch: {
+  primaryActionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-  switchButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginHorizontal: 6,
-    backgroundColor: '#f7f7f7',
+  connectBtn: {
+    backgroundColor: '#4caf50',
   },
-  switchButtonActive: {
-    backgroundColor: '#2196f3',
-    borderColor: '#2196f3',
-  },
-  switchButtonText: {
-    color: '#333',
-    fontWeight: '600',
-  },
-  switchButtonTextActive: {
-    color: '#fff',
+  disconnectBtn: {
+    backgroundColor: '#f44336',
   },
   calendar: {
     marginHorizontal: 16,
