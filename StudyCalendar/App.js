@@ -380,12 +380,7 @@ END:VCALENDAR`;
         </View>
       )}
       
-      <TouchableOpacity 
-        style={styles.addButton}
-        onPress={() => setShowAddModal(true)}
-      >
-        <Text style={styles.addButtonText}>+ Add Assignment</Text>
-      </TouchableOpacity>
+      
       {currentPage === 'home' ? (
         <Calendar
           style={styles.calendar}
