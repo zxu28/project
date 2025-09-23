@@ -7,7 +7,7 @@ import EventsList from './components/EventsList';
 // Sample Canvas ICS feed URL (replace with a real one if needed)
 const SAMPLE_ICS_URL = 'https://canvas.instructure.com/feeds/calendars/user_1234567890.ics';
 // Google Apps Script Web App URL (set your deployed URL to enable Google events)
-const GOOGLE_APPS_SCRIPT_URL = '';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_7O8E568a9rGV5dhciRnH81KOFGfDXBFzyH__z7kIYbvX03wkbJzAXdlBdO11Zbz0/exec';
 
 export default function App() {
   const [events, setEvents] = useState({});
