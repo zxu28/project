@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TextInput, TouchableOpacity, Modal } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import ICAL from 'ical.js';
+import EventsList from './components/EventsList';
 
-// Sample Canvas ICS feed URL (you can replace this with a real one)
+// Sample Canvas ICS feed URL (replace with a real one if needed)
 const SAMPLE_ICS_URL = 'https://canvas.instructure.com/feeds/calendars/user_1234567890.ics';
+// Google Apps Script Web App URL (set your deployed URL to enable Google events)
+const GOOGLE_APPS_SCRIPT_URL = '';
 
 export default function App() {
   const [events, setEvents] = useState({});
   const [studyBlocks, setStudyBlocks] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' | 'list'
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
@@ -20,6 +24,7 @@ export default function App() {
 
   useEffect(() => {
     fetchCalendarEvents();
+    fetchGoogleEvents();
   }, []);
 
   const fetchCalendarEvents = async () => {
@@ -101,6 +106,46 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error parsing ICS:', error);
       Alert.alert('Error', 'Failed to load calendar events');
+    }
+  };
+
+  const fetchGoogleEvents = async () => {
+    try {
+      if (!GOOGLE_APPS_SCRIPT_URL) return;
+      const res = await fetch(GOOGLE_APPS_SCRIPT_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // Expecting array of events with start/end and summary/description/location
+      // Example item: { start: '2024-12-01T10:00:00Z', end: '...', title: '...', description: '...', location: '...' }
+      const merged = { ...events };
+
+      (Array.isArray(data) ? data : []).forEach(ev => {
+        const start = ev.start || ev.startDate || ev.startTime || ev.startDateTime;
+        const title = ev.title || ev.summary || 'Event';
+        if (!start || !title) return;
+        const startDate = new Date(start);
+        if (isNaN(startDate.getTime())) return;
+        const dateKey = startDate.toISOString().split('T')[0];
+        const timeText = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        merged[dateKey] = {
+          ...merged[dateKey],
+          assignments: [
+            ...(merged[dateKey]?.assignments || []),
+            {
+              title,
+              description: ev.description || '',
+              time: timeText,
+              type: 'assignment',
+            }
+          ]
+        };
+      });
+
+      setEvents(merged);
+    } catch (error) {
+      console.error('Error fetching Google events:', error);
     }
   };
 
@@ -231,6 +276,21 @@ END:VCALENDAR`;
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Study Calendar</Text>
+
+      <View style={styles.modeSwitch}>
+        <TouchableOpacity 
+          style={[styles.switchButton, viewMode === 'calendar' && styles.switchButtonActive]}
+          onPress={() => setViewMode('calendar')}
+        >
+          <Text style={[styles.switchButtonText, viewMode === 'calendar' && styles.switchButtonTextActive]}>Calendar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.switchButton, viewMode === 'list' && styles.switchButtonActive]}
+          onPress={() => setViewMode('list')}
+        >
+          <Text style={[styles.switchButtonText, viewMode === 'list' && styles.switchButtonTextActive]}>List</Text>
+        </TouchableOpacity>
+      </View>
       
       <TouchableOpacity 
         style={styles.addButton}
@@ -238,35 +298,44 @@ END:VCALENDAR`;
       >
         <Text style={styles.addButtonText}>+ Add Assignment</Text>
       </TouchableOpacity>
-      
-      <Calendar
-        style={styles.calendar}
-        current={selectedDate}
-        onDayPress={(day) => setSelectedDate(day.dateString)}
-        markedDates={getMarkedDates()}
-        theme={{
-          backgroundColor: '#ffffff',
-          calendarBackground: '#ffffff',
-          textSectionTitleColor: '#b6c1cd',
-          selectedDayBackgroundColor: '#2196f3',
-          selectedDayTextColor: '#ffffff',
-          todayTextColor: '#2196f3',
-          dayTextColor: '#2d4150',
-          textDisabledColor: '#d9e1e8',
-          dotColor: '#00adf5',
-          selectedDotColor: '#ffffff',
-          arrowColor: '#2196f3',
-          disabledArrowColor: '#d9e1e8',
-          monthTextColor: '#2196f3',
-          indicatorColor: '#2196f3',
-          textDayFontWeight: '300',
-          textMonthFontWeight: 'bold',
-          textDayHeaderFontWeight: '300',
-          textDayFontSize: 16,
-          textMonthFontSize: 16,
-          textDayHeaderFontSize: 13,
-        }}
-      />
+      {viewMode === 'calendar' ? (
+        <Calendar
+          style={styles.calendar}
+          current={selectedDate}
+          onDayPress={(day) => setSelectedDate(day.dateString)}
+          markedDates={getMarkedDates()}
+          theme={{
+            backgroundColor: '#ffffff',
+            calendarBackground: '#ffffff',
+            textSectionTitleColor: '#b6c1cd',
+            selectedDayBackgroundColor: '#2196f3',
+            selectedDayTextColor: '#ffffff',
+            todayTextColor: '#2196f3',
+            dayTextColor: '#2d4150',
+            textDisabledColor: '#d9e1e8',
+            dotColor: '#00adf5',
+            selectedDotColor: '#ffffff',
+            arrowColor: '#2196f3',
+            disabledArrowColor: '#d9e1e8',
+            monthTextColor: '#2196f3',
+            indicatorColor: '#2196f3',
+            textDayFontWeight: '300',
+            textMonthFontWeight: 'bold',
+            textDayHeaderFontWeight: '300',
+            textDayFontSize: 16,
+            textMonthFontSize: 16,
+            textDayHeaderFontSize: 13,
+          }}
+        />
+      ) : (
+        <View style={styles.eventsContainer}>
+          <EventsList 
+            events={events[selectedDate]?.assignments || []}
+            studyBlocks={studyBlocks[selectedDate]?.studyBlocks || []}
+            selectedDate={selectedDate}
+          />
+        </View>
+      )}
 
       <ScrollView style={styles.eventsContainer}>
         <Text style={styles.eventsTitle}>
@@ -379,6 +448,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     color: '#333',
+  },
+  modeSwitch: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  switchButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginHorizontal: 6,
+    backgroundColor: '#f7f7f7',
+  },
+  switchButtonActive: {
+    backgroundColor: '#2196f3',
+    borderColor: '#2196f3',
+  },
+  switchButtonText: {
+    color: '#333',
+    fontWeight: '600',
+  },
+  switchButtonTextActive: {
+    color: '#fff',
   },
   calendar: {
     marginHorizontal: 16,
