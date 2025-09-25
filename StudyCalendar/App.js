@@ -9,7 +9,10 @@ const SAMPLE_ICS_URL = 'https://canvas.instructure.com/feeds/calendars/user_1234
 // Google Apps Script Web App URL (set your deployed URL to enable Google events)
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_7O8E568a9rGV5dhciRnH81KOFGfDXBFzyH__z7kIYbvX03wkbJzAXdlBdO11Zbz0/exec';
 const CANVAS_API_TOKEN = "22006~HwPkvfka8H4N4KhvnhALtHkzQGQfAQYAQFNzzyJXYL9wRwZURaHzu4Wy47vYVYnA";
-const CANVAS_BASE_URL = "https://canvas.instructure.com/api/v1";
+// IMPORTANT: set this to your institution host, e.g., https://<school>.instructure.com/api/v1
+const CANVAS_BASE_URL = "https://pomfret.instructure.com/api/v1";
+// Optional: set a proxy URL (e.g., Apps Script) to bypass CORS and attach token server-side
+const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwvdn44BbxEC_UnxIWQEeTRSEd_O3q9Rh_KrASXDHc-IQ5_7op21qvz-wIRPUyclcgF7A/exec";
 
 export default function App() {
   const [events, setEvents] = useState({});
@@ -193,20 +196,23 @@ END:VCALENDAR`;
 
   const fetchCanvasAssignments = async () => {
     try {
-      const url = `${CANVAS_BASE_URL}/calendar_events?type=assignment`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${CANVAS_API_TOKEN}`,
-          Accept: 'application/json',
-        },
-      });
+      const today = new Date();
+      const start = new Date(today);
+      start.setDate(start.getDate() - 30);
+      const end = new Date(today);
+      end.setDate(end.getDate() + 120);
+
+      const url = `${CANVAS_PROXY_URL}?endpoint=calendar_events&type=assignment&per_page=50&start_date=${start.toISOString()}&end_date=${end.toISOString()}`;
+
+      const res = await fetch(url);
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          Alert.alert('Canvas API connection failed. Please check your token.');
-        }
         throw new Error(`HTTP ${res.status}`);
       }
       const data = await res.json();
+      if (!Array.isArray(data)) {
+        console.warn('Canvas response not an array', data);
+      }
+
       const merged = { ...events };
 
       (Array.isArray(data) ? data : []).forEach(ev => {
@@ -245,6 +251,7 @@ END:VCALENDAR`;
       setEvents(merged);
     } catch (error) {
       console.error('Error fetching Canvas assignments:', error);
+      Alert.alert('Canvas API connection failed. Please check the Apps Script proxy.');
     }
   };
 
