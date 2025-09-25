@@ -250,49 +250,52 @@ END:VCALENDAR`;
 
   const getMarkedDates = () => {
     const marked = {};
-    
-    // Mark dates with assignments
-    Object.keys(events).forEach(date => {
-      marked[date] = {
-        marked: true,
-        dotColor: '#ff6b6b',
-        customStyles: {
-          container: {
-            backgroundColor: '#ffebee',
-            borderRadius: 8,
-          },
-          text: {
-            color: '#d32f2f',
-            fontWeight: 'bold',
-          },
-        },
-      };
-    });
 
-    // Mark dates with study blocks
-    Object.keys(studyBlocks).forEach(date => {
-      if (marked[date]) {
-        marked[date].dots = [
-          { key: 'assignment', color: '#ff6b6b' },
-          { key: 'study', color: '#4caf50' }
-        ];
-        marked[date].customStyles.container.backgroundColor = '#e8f5e8';
-      } else {
+    const DOTS = {
+      canvas: { key: 'canvas', color: '#e53935' },      // Canvas assignments (red)
+      google: { key: 'google', color: '#1e88e5' },      // Google schedules (blue)
+      manual: { key: 'manual', color: '#fb8c00' },      // Manually added assignments (orange)
+      study: { key: 'study', color: '#4caf50' },        // Study blocks (green)
+    };
+
+    // Build dots from events by source/type
+    Object.keys(events).forEach(date => {
+      const day = events[date] || {};
+      const assignments = day.assignments || [];
+      const dots = [];
+
+      // assignments: distinguish by source
+      assignments.forEach(item => {
+        if (item.type === 'assignment') {
+          if (item.source === 'canvas') {
+            if (!dots.find(d => d.key === DOTS.canvas.key)) dots.push(DOTS.canvas);
+          } else {
+            if (!dots.find(d => d.key === DOTS.manual.key)) dots.push(DOTS.manual);
+          }
+        }
+        if (item.type === 'schedule') {
+          if (!dots.find(d => d.key === DOTS.google.key)) dots.push(DOTS.google);
+        }
+      });
+
+      if (dots.length > 0) {
         marked[date] = {
+          ...(marked[date] || {}),
+          dots,
           marked: true,
-          dotColor: '#4caf50',
-          customStyles: {
-            container: {
-              backgroundColor: '#e8f5e8',
-              borderRadius: 8,
-            },
-            text: {
-              color: '#2e7d32',
-              fontWeight: 'bold',
-            },
-          },
         };
       }
+    });
+
+    // Add study block dots
+    Object.keys(studyBlocks).forEach(date => {
+      const existing = marked[date]?.dots || [];
+      if (!existing.find(d => d.key === DOTS.study.key)) existing.push(DOTS.study);
+      marked[date] = {
+        ...(marked[date] || {}),
+        dots: existing,
+        marked: true,
+      };
     });
 
     // Mark selected date
@@ -456,6 +459,7 @@ END:VCALENDAR`;
           current={selectedDate}
           onDayPress={(day) => setSelectedDate(day.dateString)}
           markedDates={getMarkedDates()}
+          markingType={'multi-dot'}
           theme={{
             backgroundColor: '#ffffff',
             calendarBackground: '#ffffff',
