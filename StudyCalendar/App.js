@@ -8,6 +8,8 @@ import EventsList from './components/EventsList';
 const SAMPLE_ICS_URL = 'https://canvas.instructure.com/feeds/calendars/user_1234567890.ics';
 // Google Apps Script Web App URL (set your deployed URL to enable Google events)
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_7O8E568a9rGV5dhciRnH81KOFGfDXBFzyH__z7kIYbvX03wkbJzAXdlBdO11Zbz0/exec';
+const CANVAS_API_TOKEN = "22006~HwPkvfka8H4N4KhvnhALtHkzQGQfAQYAQFNzzyJXYL9wRwZURaHzu4Wy47vYVYnA";
+const CANVAS_BASE_URL = "https://canvas.instructure.com/api/v1";
 
 export default function App() {
   const [events, setEvents] = useState({});
@@ -34,6 +36,7 @@ export default function App() {
     if (googleConnected) {
       fetchGoogleEvents();
     }
+    fetchCanvasAssignments();
   }, []);
 
   const fetchCalendarEvents = async () => {
@@ -186,6 +189,63 @@ END:VCALENDAR`;
   const connectGoogle = async () => {
     setGoogleConnected(true);
     await fetchGoogleEvents();
+  };
+
+  const fetchCanvasAssignments = async () => {
+    try {
+      const url = `${CANVAS_BASE_URL}/calendar_events?type=assignment`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${CANVAS_API_TOKEN}`,
+          Accept: 'application/json',
+        },
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          Alert.alert('Canvas API connection failed. Please check your token.');
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const merged = { ...events };
+
+      (Array.isArray(data) ? data : []).forEach(ev => {
+        if ((ev?.type || '').toLowerCase() !== 'assignment') return;
+        const title = ev.title || ev?.assignment?.title || ev.summary || 'Assignment';
+        const description = ev.description || ev?.assignment?.description || '';
+        const dueISO = ev.end_at || ev.start_at || ev.all_day_date;
+        const course = ev.context_name || '';
+        if (!dueISO || !title) return;
+        const dueDate = new Date(dueISO);
+        if (isNaN(dueDate.getTime())) return;
+        const dateKey = dueDate.toISOString().split('T')[0];
+        const timeText = dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        const existing = merged[dateKey]?.assignments || [];
+        const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'assignment');
+        if (!isDuplicate) {
+          merged[dateKey] = {
+            ...merged[dateKey],
+            assignments: [
+              ...existing,
+              {
+                title,
+                description,
+                time: timeText,
+                type: 'assignment',
+                course,
+                category: 'Canvas',
+                source: 'canvas',
+              }
+            ]
+          };
+        }
+      });
+
+      setEvents(merged);
+    } catch (error) {
+      console.error('Error fetching Canvas assignments:', error);
+    }
   };
 
   const getMarkedDates = () => {
@@ -461,42 +521,44 @@ END:VCALENDAR`;
         </View>
       )}
 
-      <ScrollView style={styles.eventsContainer}>
-        <Text style={styles.eventsTitle}>
-          Events for {new Date(selectedDate).toLocaleDateString()}
-        </Text>
-        
-        {getEventsForSelectedDate().length === 0 ? (
-          <Text style={styles.noEvents}>No events scheduled for this date</Text>
-        ) : (
-          getEventsForSelectedDate().map((event, index) => (
-            <View 
-              key={index} 
-              style={[
-                styles.eventItem,
-                event.type === 'assignment' ? styles.assignmentEvent : styles.studyEvent
-              ]}
-            >
-              <Text style={styles.eventTitle}>{event.title}</Text>
-              <Text style={styles.eventTime}>{event.time}</Text>
-              {event.description && (
-                <Text style={styles.eventDescription}>{event.description}</Text>
-              )}
-              {event.duration && (
-                <Text style={styles.eventDuration}>Duration: {event.duration}</Text>
-              )}
-              <View style={[
-                styles.eventTypeBadge,
-                event.type === 'assignment' ? styles.assignmentBadge : styles.studyBadge
-              ]}>
-                <Text style={styles.eventTypeText}>
-                  {event.type === 'assignment' ? 'Assignment' : 'Study Block'}
-                </Text>
+      {currentPage === 'home' && (
+        <ScrollView style={styles.eventsContainer}>
+          <Text style={styles.eventsTitle}>
+            Events for {new Date(selectedDate).toLocaleDateString()}
+          </Text>
+          
+          {getEventsForSelectedDate().length === 0 ? (
+            <Text style={styles.noEvents}>No events scheduled for this date</Text>
+          ) : (
+            getEventsForSelectedDate().map((event, index) => (
+              <View 
+                key={index} 
+                style={[
+                  styles.eventItem,
+                  event.type === 'assignment' ? styles.assignmentEvent : styles.studyEvent
+                ]}
+              >
+                <Text style={styles.eventTitle}>{event.title}</Text>
+                <Text style={styles.eventTime}>{event.time}</Text>
+                {event.description && (
+                  <Text style={styles.eventDescription}>{event.description}</Text>
+                )}
+                {event.duration && (
+                  <Text style={styles.eventDuration}>Duration: {event.duration}</Text>
+                )}
+                <View style={[
+                  styles.eventTypeBadge,
+                  event.type === 'assignment' ? styles.assignmentBadge : styles.studyBadge
+                ]}>
+                  <Text style={styles.eventTypeText}>
+                    {event.type === 'assignment' ? 'Assignment' : 'Study Block'}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+            ))
+          )}
+        </ScrollView>
+      )}
 
       {/* Add Assignment Modal */}
       <Modal
