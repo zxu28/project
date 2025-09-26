@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TextInput, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TextInput, TouchableOpacity, Modal, Linking } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import ICAL from 'ical.js';
 import EventsList from './components/EventsList';
 
-// Sample Canvas ICS feed URL (replace with a real one if needed)
-const SAMPLE_ICS_URL = 'https://canvas.instructure.com/feeds/calendars/user_1234567890.ics';
+// ICS feed URL (replace with your real one)
+const ICS_URL = "https://pomfret.instructure.com/feeds/calendars/user_U5a3dGrIE7Y45lSX7KUDM87bRYen3k9NWxyuvQOn.ics";
 // Google Apps Script Web App URL (set your deployed URL to enable Google events)
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_7O8E568a9rGV5dhciRnH81KOFGfDXBFzyH__z7kIYbvX03wkbJzAXdlBdO11Zbz0/exec';
 const CANVAS_API_TOKEN = "22006~HwPkvfka8H4N4KhvnhALtHkzQGQfAQYAQFNzzyJXYL9wRwZURaHzu4Wy47vYVYnA";
@@ -16,10 +16,11 @@ const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKs
 
 export default function App() {
   const [events, setEvents] = useState({});
+  const [courses, setCourses] = useState({});
   const [studyBlocks, setStudyBlocks] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [currentPage, setCurrentPage] = useState('home'); // 'home' | 'list'
+  const [currentPage, setCurrentPage] = useState('list'); // 'home' | 'list'
   const [googleConnected, setGoogleConnected] = useState(true);
   const [filterClass, setFilterClass] = useState('');
   const [filterFrom, setFilterFrom] = useState(''); // YYYY-MM-DD
@@ -35,43 +36,42 @@ export default function App() {
   });
 
   useEffect(() => {
+    // Load Canvas first so List view shows data immediately
+    fetchCanvasCourses().then(() => {
+      fetchCanvasAssignments();
+    });
     fetchCalendarEvents();
     if (googleConnected) {
       fetchGoogleEvents();
     }
-    fetchCanvasAssignments();
   }, []);
+  const fetchCanvasCourses = async () => {
+    try {
+      const url = `${CANVAS_PROXY_URL}?endpoint=courses&per_page=100&enrollment_state=active`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      const courseMap = {};
+      (Array.isArray(data) ? data : []).forEach(c => {
+        if (c.id && c.name) {
+          courseMap[c.id] = c.name;
+        }
+      });
+
+      setCourses(courseMap);
+    } catch (error) {
+      console.error("Error fetching Canvas courses:", error);
+    }
+  };
 
   const fetchCalendarEvents = async () => {
     try {
-      // For demo purposes, we'll use a sample ICS content instead of fetching from URL
-      const sampleICSContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Canvas LMS//NONSGML v1.0//EN
-BEGIN:VEVENT
-DTSTART:20241215T235900Z
-DTEND:20241216T000000Z
-SUMMARY:Math Assignment Due
-DESCRIPTION:Complete calculus problem set
-LOCATION:Online
-END:VEVENT
-BEGIN:VEVENT
-DTSTART:20241218T235900Z
-DTEND:20241219T000000Z
-SUMMARY:History Essay Due
-DESCRIPTION:Write 5-page essay on World War II
-LOCATION:Online
-END:VEVENT
-BEGIN:VEVENT
-DTSTART:20241220T235900Z
-DTEND:20241221T000000Z
-SUMMARY:Science Lab Report Due
-DESCRIPTION:Complete chemistry lab analysis
-LOCATION:Online
-END:VEVENT
-END:VCALENDAR`;
-
-      const jcalData = ICAL.parse(sampleICSContent);
+      // Fetch ICS feed from ICS_URL
+      const res = await fetch(ICS_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const icsText = await res.text();
+      const jcalData = ICAL.parse(icsText);
       const comp = new ICAL.Component(jcalData);
       const vevents = comp.getAllSubcomponents('vevent');
       
@@ -250,36 +250,40 @@ END:VCALENDAR`;
         const merged = { ...prev };
 
         (Array.isArray(data) ? data : []).forEach(ev => {
-        // Always treat all Canvas API items as assignments, regardless of type
-        const title = ev.title || ev?.assignment?.title || ev.summary || 'Assignment';
-        const description = ev.description || ev?.assignment?.description || '';
-        const dueISO = ev.end_at || ev.start_at || ev.all_day_date;
-        const course = ev.context_name || '';
-        if (!dueISO || !title) return;
-        const dueDate = new Date(dueISO);
-        if (isNaN(dueDate.getTime())) return;
-        const dateKey = dueDate.toISOString().split('T')[0];
-        const timeText = dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          // Always treat all Canvas API items as assignments, regardless of type
+          const title = ev.title || ev?.assignment?.title || ev.summary || 'Assignment';
+          const description = ev.description || ev?.assignment?.description || '';
+          const dueISO = ev.end_at || ev.start_at || ev.all_day_date;
+          // const course = ev.context_name || '';
+          const courseId = ev.context_code?.replace("course_", "") || ev.course_id;
+          const course = courses[courseId] || '';
+          const url = ev.html_url || '';
+          if (!dueISO || !title) return;
+          const dueDate = new Date(dueISO);
+          if (isNaN(dueDate.getTime())) return;
+          const dateKey = dueDate.toISOString().split('T')[0];
+          const timeText = dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        const existing = merged[dateKey]?.assignments || [];
-        const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'assignment');
-        if (!isDuplicate) {
-          merged[dateKey] = {
-            ...merged[dateKey],
-            assignments: [
-              ...existing,
-              {
-                title,
-                description,
-                time: timeText,
-                type: 'assignment',
-                course,
-                category: 'Canvas',
-                source: 'canvas',
-              }
-            ]
-          };
-        }
+          const existing = merged[dateKey]?.assignments || [];
+          const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'assignment');
+          if (!isDuplicate) {
+            merged[dateKey] = {
+              ...merged[dateKey],
+              assignments: [
+                ...existing,
+                {
+                  title,
+                  description,
+                  time: timeText,
+                  type: 'assignment',
+                  course,
+                  category: 'Canvas',
+                  source: 'canvas',
+                  url, // Add Canvas URL property
+                }
+              ]
+            };
+          }
         });
 
         return merged;
@@ -589,6 +593,11 @@ END:VCALENDAR`;
                 {event.description && (
                   <Text style={styles.eventDescription}>{event.description}</Text>
                 )}
+                {event.url && (
+                  <Text style={styles.eventLink} onPress={() => Linking.openURL(event.url)}>
+                    Open in Canvas
+                  </Text>
+                )}
                 {event.duration && (
                   <Text style={styles.eventDuration}>Duration: {event.duration}</Text>
                 )}
@@ -868,5 +877,11 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  eventLink: {
+    fontSize: 14,
+    color: '#1e88e5',
+    marginTop: 8,
+    textDecorationLine: 'underline',
   },
 });
