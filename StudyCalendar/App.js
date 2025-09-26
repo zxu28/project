@@ -235,7 +235,7 @@ export default function App() {
       const end = new Date(today);
       end.setDate(end.getDate() + 120);
 
-      const url = `${CANVAS_PROXY_URL}?endpoint=calendar_events&type=assignment&per_page=50&start_date=${start.toISOString()}&end_date=${end.toISOString()}`;
+      const url = `${CANVAS_PROXY_URL}?host=pomfret.instructure.com&endpoint=calendar_events&type=assignment&per_page=50&start_date=${start.toISOString()}&end_date=${end.toISOString()}`;
 
       const res = await fetch(url);
       if (!res.ok) {
@@ -243,6 +243,12 @@ export default function App() {
       }
       const data = await res.json();
       if (!Array.isArray(data)) {
+        // Handle proxy error envelope or HTML body
+        if (data && (data.error || data.body)) {
+          console.warn('Canvas proxy error:', data.error || 'Unknown', data.body ? String(data.body).slice(0, 200) : '');
+          Alert.alert('Canvas proxy error', String(data.error || 'Unexpected response'));
+          return;
+        }
         console.warn('Canvas response not an array', data);
       }
 
