@@ -12,7 +12,7 @@ const CANVAS_API_TOKEN = "22006~HwPkvfka8H4N4KhvnhALtHkzQGQfAQYAQFNzzyJXYL9wRwZU
 // IMPORTANT: set this to your institution host, e.g., https://<school>.instructure.com/api/v1
 const CANVAS_BASE_URL = "https://pomfret.instructure.com/api/v1";
 // Optional: set a proxy URL (e.g., Apps Script) to bypass CORS and attach token server-side
-const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwvdn44BbxEC_UnxIWQEeTRSEd_O3q9Rh_KrASXDHc-IQ5_7op21qvz-wIRPUyclcgF7A/exec";
+const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKsProThdJyZmKug2oIu9wZ7_5ut0agvLLfJibGD18IoDXVCwZb1B-TEgg/exec";
 
 export default function App() {
   const [events, setEvents] = useState({});
