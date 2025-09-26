@@ -121,8 +121,39 @@ END:VCALENDAR`;
         };
       });
 
-      setEvents(parsedEvents);
-      setStudyBlocks(generatedStudyBlocks);
+      // Merge parsed ICS assignments into existing events (functional update to avoid overwrite)
+      setEvents(prevEvents => {
+        const merged = { ...prevEvents };
+        Object.keys(parsedEvents).forEach(dateKey => {
+          const existing = merged[dateKey]?.assignments || [];
+          const additions = parsedEvents[dateKey]?.assignments || [];
+          const next = [...existing];
+          additions.forEach(item => {
+            const dup = next.some(e => e.title === item.title && e.time === item.time && e.type === item.type);
+            if (!dup) next.push(item);
+          });
+        
+          merged[dateKey] = {
+            ...merged[dateKey],
+            assignments: next,
+          };
+        });
+        return merged;
+      });
+
+      // Merge generated study blocks into existing studyBlocks
+      setStudyBlocks(prevBlocks => {
+        const merged = { ...prevBlocks };
+        Object.keys(generatedStudyBlocks).forEach(dateKey => {
+          const existing = merged[dateKey]?.studyBlocks || [];
+          const additions = generatedStudyBlocks[dateKey]?.studyBlocks || [];
+          merged[dateKey] = {
+            ...merged[dateKey],
+            studyBlocks: [...existing, ...additions],
+          };
+        });
+        return merged;
+      });
     } catch (error) {
       console.error('Error parsing ICS:', error);
       Alert.alert('Error', 'Failed to load calendar events');
@@ -138,39 +169,41 @@ END:VCALENDAR`;
 
       // Expecting array of events with start/end and summary/description/location
       // Example item: { start: '2024-12-01T10:00:00Z', end: '...', title: '...', description: '...', location: '...' }
-      const merged = { ...events };
+      setEvents(prev => {
+        const merged = { ...prev };
 
-      (Array.isArray(data) ? data : []).forEach(ev => {
-        const start = ev.start || ev.startDate || ev.startTime || ev.startDateTime;
-        const title = ev.title || ev.summary || 'Event';
-        if (!start || !title) return;
-        const startDate = new Date(start);
-        if (isNaN(startDate.getTime())) return;
-        const dateKey = startDate.toISOString().split('T')[0];
-        const timeText = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        (Array.isArray(data) ? data : []).forEach(ev => {
+          const start = ev.start || ev.startDate || ev.startTime || ev.startDateTime;
+          const title = ev.title || ev.summary || 'Event';
+          if (!start || !title) return;
+          const startDate = new Date(start);
+          if (isNaN(startDate.getTime())) return;
+          const dateKey = startDate.toISOString().split('T')[0];
+          const timeText = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        const existing = merged[dateKey]?.assignments || [];
-        const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'schedule');
-        if (!isDuplicate) {
-          merged[dateKey] = {
-            ...merged[dateKey],
-            assignments: [
-              ...existing,
-              {
-                title,
-                description: ev.description || '',
-                time: timeText,
-                type: 'schedule',
-                course: ev.location || '',
-                category: '',
-                source: 'google',
-              }
-            ]
-          };
-        }
+          const existing = merged[dateKey]?.assignments || [];
+          const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'schedule');
+          if (!isDuplicate) {
+            merged[dateKey] = {
+              ...merged[dateKey],
+              assignments: [
+                ...existing,
+                {
+                  title,
+                  description: ev.description || '',
+                  time: timeText,
+                  type: 'schedule',
+                  course: ev.location || '',
+                  category: '',
+                  source: 'google',
+                }
+              ]
+            };
+          }
+        });
+
+        return merged;
       });
-
-      setEvents(merged);
     } catch (error) {
       console.error('Error fetching Google events:', error);
     }
@@ -213,10 +246,11 @@ END:VCALENDAR`;
         console.warn('Canvas response not an array', data);
       }
 
-      const merged = { ...events };
+      setEvents(prev => {
+        const merged = { ...prev };
 
-      (Array.isArray(data) ? data : []).forEach(ev => {
-        if ((ev?.type || '').toLowerCase() !== 'assignment') return;
+        (Array.isArray(data) ? data : []).forEach(ev => {
+        // Always treat all Canvas API items as assignments, regardless of type
         const title = ev.title || ev?.assignment?.title || ev.summary || 'Assignment';
         const description = ev.description || ev?.assignment?.description || '';
         const dueISO = ev.end_at || ev.start_at || ev.all_day_date;
@@ -246,9 +280,10 @@ END:VCALENDAR`;
             ]
           };
         }
-      });
+        });
 
-      setEvents(merged);
+        return merged;
+      });
     } catch (error) {
       console.error('Error fetching Canvas assignments:', error);
       Alert.alert('Canvas API connection failed. Please check the Apps Script proxy.');
