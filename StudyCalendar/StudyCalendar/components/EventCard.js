@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Linking } from 'react-native';
 import { COLORS } from '../constants/colors';
 
 const EventCard = ({ event, type = 'assignment' }) => {
@@ -18,8 +18,13 @@ const EventCard = ({ event, type = 'assignment' }) => {
           </Text>
         </View>
       </View>
-      
-      <Text style={styles.eventTime}>{event.time}</Text>
+      {isAssignment && !!event.course && (
+        <Text style={styles.eventCourse}>{event.course}</Text>
+      )}
+
+      <Text style={styles.eventTime}>
+        {event._date ? `Due: ${event._date} ${event.time || ''}` : (event.time || '')}
+      </Text>
       
       {event.description && (
         <Text style={styles.eventDescription}>{event.description}</Text>
@@ -31,6 +36,12 @@ const EventCard = ({ event, type = 'assignment' }) => {
       
       {event.location && (
         <Text style={styles.eventLocation}>📍 {event.location}</Text>
+      )}
+
+      {event.url && (
+        <Text style={styles.eventLink} onPress={() => Linking.openURL(event.url)}>
+          Open assignment
+        </Text>
       )}
     </View>
   );
@@ -97,6 +108,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '500',
   },
+  eventCourse: {
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+    fontWeight: '600',
+  },
   eventDescription: {
     fontSize: 14,
     color: COLORS.textPrimary,
@@ -112,6 +129,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     fontStyle: 'italic',
+  },
+  eventLink: {
+    fontSize: 14,
+    color: '#1e88e5',
+    marginTop: 8,
+    textDecorationLine: 'underline',
   },
 });
 

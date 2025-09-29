@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TextInput, TouchableOpacity, Modal, Linking } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Calendar } from 'react-native-calendars';
 import ICAL from 'ical.js';
 import EventsList from './components/EventsList';
@@ -13,6 +14,8 @@ const CANVAS_API_TOKEN = "22006~HwPkvfka8H4N4KhvnhALtHkzQGQfAQYAQFNzzyJXYL9wRwZU
 const CANVAS_BASE_URL = "https://pomfret.instructure.com/api/v1";
 // Optional: set a proxy URL (e.g., Apps Script) to bypass CORS and attach token server-side
 const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKsProThdJyZmKug2oIu9wZ7_5ut0agvLLfJibGD18IoDXVCwZb1B-TEgg/exec";
+// Unified assignments API (Google Apps Script deployment)
+const ASSIGNMENTS_API_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKsProThdJyZmKug2oIu9wZ7_5ut0agvLLfJibGD18IoDXVCwZb1B-TEgg/exec";
 
 export default function App() {
   const [events, setEvents] = useState({});
@@ -26,6 +29,7 @@ export default function App() {
   const [filterFrom, setFilterFrom] = useState(''); // YYYY-MM-DD
   const [filterTo, setFilterTo] = useState(''); // YYYY-MM-DD
   const [filterCategory, setFilterCategory] = useState(''); // e.g., Homework/Exam/Project
+  const [filterRange, setFilterRange] = useState('all'); // all | this_week | this_month | next_month
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
@@ -34,6 +38,7 @@ export default function App() {
     course: '',
     category: '',
   });
+  const [assignmentsLoadError, setAssignmentsLoadError] = useState(false);
 
   useEffect(() => {
     // Load Canvas first so List view shows data immediately
@@ -75,7 +80,6 @@ export default function App() {
       const comp = new ICAL.Component(jcalData);
       const vevents = comp.getAllSubcomponents('vevent');
       
-      const parsedEvents = {};
       const generatedStudyBlocks = {};
 
       vevents.forEach(vevent => {
@@ -83,24 +87,6 @@ export default function App() {
         const startDate = event.startDate.toJSDate();
         const dateKey = startDate.toISOString().split('T')[0];
         const timeText = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
-        // Add assignment to events
-        const existing = parsedEvents[dateKey]?.assignments || [];
-        const isDuplicate = existing.some(e => e.title === event.summary && e.time === timeText && e.type === 'assignment');
-        if (!isDuplicate) {
-          parsedEvents[dateKey] = {
-            ...parsedEvents[dateKey],
-            assignments: [
-              ...existing,
-              {
-                title: event.summary,
-                description: event.description,
-                time: timeText,
-                type: 'assignment'
-              }
-            ]
-          };
-        }
 
         // Generate study block for the day before
         const studyDate = new Date(startDate);
@@ -119,26 +105,6 @@ export default function App() {
             }
           ]
         };
-      });
-
-      // Merge parsed ICS assignments into existing events (functional update to avoid overwrite)
-      setEvents(prevEvents => {
-        const merged = { ...prevEvents };
-        Object.keys(parsedEvents).forEach(dateKey => {
-          const existing = merged[dateKey]?.assignments || [];
-          const additions = parsedEvents[dateKey]?.assignments || [];
-          const next = [...existing];
-          additions.forEach(item => {
-            const dup = next.some(e => e.title === item.title && e.time === item.time && e.type === item.type);
-            if (!dup) next.push(item);
-          });
-        
-          merged[dateKey] = {
-            ...merged[dateKey],
-            assignments: next,
-          };
-        });
-        return merged;
       });
 
       // Merge generated study blocks into existing studyBlocks
@@ -229,46 +195,45 @@ export default function App() {
 
   const fetchCanvasAssignments = async () => {
     try {
-      const today = new Date();
-      const start = new Date(today);
-      start.setDate(start.getDate() - 30);
-      const end = new Date(today);
-      end.setDate(end.getDate() + 120);
-
-      const url = `${CANVAS_PROXY_URL}?host=pomfret.instructure.com&endpoint=calendar_events&type=assignment&per_page=50&start_date=${start.toISOString()}&end_date=${end.toISOString()}`;
-
-      const res = await fetch(url);
+      const res = await fetch(ASSIGNMENTS_API_URL);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
-      const data = await res.json();
-      if (!Array.isArray(data)) {
-        // Handle proxy error envelope or HTML body
-        if (data && (data.error || data.body)) {
-          console.warn('Canvas proxy error:', data.error || 'Unknown', data.body ? String(data.body).slice(0, 200) : '');
-          Alert.alert('Canvas proxy error', String(data.error || 'Unexpected response'));
-          return;
-        }
-        console.warn('Canvas response not an array', data);
-      }
+      const raw = await res.json();
+      // Support either a direct array or an envelope like { assignments: [...] }
+      const data = Array.isArray(raw) ? raw : (Array.isArray(raw?.assignments) ? raw.assignments : []);
+
+      // Filter to future assignments (keep items with missing due date as upcoming)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const normalized = (Array.isArray(data) ? data : []).map(item => {
+        const title = item.name || item.title || 'Assignment';
+        const description = item.description || '';
+        const dueISO = item.due_at || item.dueDate || item.end_at || item.start_at || item.all_day_date;
+        const course = item.course || item.context_name || item.course_name || '';
+        const url = item.url || item.html_url || '';
+        const dueDate = dueISO ? new Date(dueISO) : null;
+        return { title, description, dueISO, dueDate, course, url };
+      });
+      const filteredAssignments = normalized.filter(it => !it.dueDate || (!isNaN(it.dueDate.getTime()) && it.dueDate >= todayStart));
+      console.log("Filtered assignments:", filteredAssignments);
 
       setEvents(prev => {
-        const merged = { ...prev };
+        // Remove existing Canvas assignments before adding filtered ones
+        const base = Object.keys(prev).reduce((acc, dateKey) => {
+          const others = (prev[dateKey]?.assignments || []).filter(a => a.source !== 'canvas');
+          if (others.length > 0) acc[dateKey] = { ...prev[dateKey], assignments: others };
+          return acc;
+        }, {});
 
-        (Array.isArray(data) ? data : []).forEach(ev => {
-          // Always treat all Canvas API items as assignments, regardless of type
-          const title = ev.title || ev?.assignment?.title || ev.summary || 'Assignment';
-          const description = ev.description || ev?.assignment?.description || '';
-          const dueISO = ev.end_at || ev.start_at || ev.all_day_date;
-          // const course = ev.context_name || '';
-          const courseId = ev.context_code?.replace("course_", "") || ev.course_id;
-          const course = courses[courseId] || '';
-          const url = ev.html_url || '';
-          if (!dueISO || !title) return;
-          const dueDate = new Date(dueISO);
-          if (isNaN(dueDate.getTime())) return;
-          const dateKey = dueDate.toISOString().split('T')[0];
-          const timeText = dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const merged = { ...base };
+        filteredAssignments.forEach(item => {
+          const { title, description, dueISO, dueDate, course, url } = item;
+          // Treat items with missing due date as upcoming: skip if no title
+          if (!title) return;
+          const effectiveDate = dueDate || todayStart;
+          const dateKey = effectiveDate.toISOString().split('T')[0];
+          const timeText = effectiveDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
           const existing = merged[dateKey]?.assignments || [];
           const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'assignment');
@@ -285,7 +250,7 @@ export default function App() {
                   course,
                   category: 'Canvas',
                   source: 'canvas',
-                  url, // Add Canvas URL property
+                  url,
                 }
               ]
             };
@@ -294,9 +259,10 @@ export default function App() {
 
         return merged;
       });
+      setAssignmentsLoadError(false);
     } catch (error) {
       console.error('Error fetching Canvas assignments:', error);
-      Alert.alert('Canvas API connection failed. Please check the Apps Script proxy.');
+      setAssignmentsLoadError(true);
     }
   };
 
@@ -374,7 +340,7 @@ export default function App() {
     const all = [];
     Object.keys(events).forEach(date => {
       (events[date]?.assignments || []).forEach(item => {
-        if (item.type === 'assignment') {
+        if (item.type === 'assignment' && item.source === 'canvas') {
           all.push({ ...item, _date: date });
         }
       });
@@ -382,7 +348,7 @@ export default function App() {
 
     // Apply filters
     return all.filter(item => {
-      if (filterClass && !(`${item.course || ''} ${item.title || ''}`.toLowerCase().includes(filterClass.toLowerCase()))) return false;
+      if (filterClass && item.course !== filterClass) return false;
       if (filterCategory && (item.category || '').toLowerCase() !== filterCategory.toLowerCase()) return false;
       if (filterFrom && (item._date < filterFrom)) return false;
       if (filterTo && (item._date > filterTo)) return false;
@@ -538,35 +504,92 @@ export default function App() {
       ) : (
         <View style={styles.eventsContainer}>
           <Text style={styles.listTitle}>Assignments List</Text>
+          {assignmentsLoadError && (
+            <Text style={styles.noEvents}>Failed to load assignments</Text>
+          )}
           <View style={styles.filtersRow}>
-            <TextInput
-              style={[styles.input, styles.filterInput]}
-              placeholder="Filter by class/course or title"
-              value={filterClass}
-              onChangeText={setFilterClass}
-            />
+            <View style={[styles.pickerContainer, styles.filterInput, styles.themedPicker, styles.pickerShadow]}>
+              <Picker
+                selectedValue={filterClass}
+                onValueChange={(itemValue) => setFilterClass(itemValue)}
+                dropdownIconColor="#2196f3"
+              >
+                <Picker.Item label="All Classes" value="" />
+                {Object.entries(courses).map(([courseId, courseName]) => (
+                  <Picker.Item key={courseId} label={courseName} value={courseName} />
+                ))}
+              </Picker>
+            </View>
           </View>
           <View style={styles.filtersRow}>
-            <TextInput
-              style={[styles.input, styles.filterHalf]}
-              placeholder="From (YYYY-MM-DD)"
-              value={filterFrom}
-              onChangeText={setFilterFrom}
-            />
-            <TextInput
-              style={[styles.input, styles.filterHalf]}
-              placeholder="To (YYYY-MM-DD)"
-              value={filterTo}
-              onChangeText={setFilterTo}
-            />
+            <View style={[styles.pickerContainer, styles.filterHalf, styles.themedPicker, styles.pickerShadow]}>
+              <Picker
+                selectedValue={filterRange}
+                onValueChange={(val) => {
+                  // Preset date ranges
+                  const today = new Date();
+                  const startOfWeek = new Date(today);
+                  startOfWeek.setDate(today.getDate() - today.getDay());
+                  startOfWeek.setHours(0,0,0,0);
+                  const endOfWeek = new Date(startOfWeek);
+                  endOfWeek.setDate(startOfWeek.getDate() + 6);
+                  endOfWeek.setHours(23,59,59,999);
+                  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+                  const startOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                  const endOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0, 23, 59, 59, 999);
+
+                  const toISODate = (d) => d.toISOString().split('T')[0];
+
+                  switch (val) {
+                    case 'all':
+                      setFilterFrom('');
+                      setFilterTo('');
+                      setFilterRange('all');
+                      break;
+                    case 'this_week':
+                      setFilterFrom(toISODate(startOfWeek));
+                      setFilterTo(toISODate(endOfWeek));
+                      setFilterRange('this_week');
+                      break;
+                    case 'this_month':
+                      setFilterFrom(toISODate(startOfMonth));
+                      setFilterTo(toISODate(endOfMonth));
+                      setFilterRange('this_month');
+                      break;
+                    case 'next_month':
+                      setFilterFrom(toISODate(startOfNextMonth));
+                      setFilterTo(toISODate(endOfNextMonth));
+                      setFilterRange('next_month');
+                      break;
+                    default:
+                      setFilterFrom('');
+                      setFilterTo('');
+                      setFilterRange('all');
+                  }
+                }}
+                dropdownIconColor="#2196f3"
+              >
+                <Picker.Item label="All Dates" value="all" />
+                <Picker.Item label="This Week" value="this_week" />
+                <Picker.Item label="This Month" value="this_month" />
+                <Picker.Item label="Next Month" value="next_month" />
+              </Picker>
+            </View>
           </View>
           <View style={styles.filtersRow}>
-            <TextInput
-              style={[styles.input, styles.filterInput]}
-              placeholder="Category (e.g., homework, exam, project)"
-              value={filterCategory}
-              onChangeText={setFilterCategory}
-            />
+            <View style={[styles.pickerContainer, styles.filterInput, styles.themedPicker, styles.pickerShadow]}>
+              <Picker
+                selectedValue={filterCategory}
+                onValueChange={(val) => setFilterCategory(val)}
+                dropdownIconColor="#2196f3"
+              >
+                <Picker.Item label="All Categories" value="" />
+                <Picker.Item label="Homework" value="homework" />
+                <Picker.Item label="Exam" value="exam" />
+                <Picker.Item label="Project" value="project" />
+              </Picker>
+            </View>
           </View>
 
           <EventsList 
@@ -741,6 +764,28 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1200,
     alignSelf: 'center',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'stretch',
+  },
+  themedPicker: {
+    borderColor: '#2196f3',
+  },
+  pickerShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
   listTitle: {
     fontSize: 18,
