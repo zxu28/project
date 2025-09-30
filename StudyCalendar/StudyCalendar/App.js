@@ -548,127 +548,168 @@ export default function App() {
           }}
         />
       ) : (
-        <View style={styles.eventsContainer}>
-          <Text style={styles.listTitle}>Assignments List</Text>
-          {assignmentsLoadError && (
-            <Text style={styles.noEvents}>Failed to load assignments</Text>
-          )}
-          <View style={styles.filtersRow}>
-            <View style={[styles.pickerContainer, styles.filterInput, styles.themedPicker, styles.pickerShadow]}>
-              <Picker
-                selectedValue={filterClass}
-                onValueChange={(itemValue) => setFilterClass(itemValue)}
-                dropdownIconColor="#2196f3"
-              >
-                <Picker.Item label="All Classes" value="" />
-                {Object.entries(courses).map(([courseId, courseName]) => (
-                  <Picker.Item key={courseId} label={courseName} value={courseName} />
-                ))}
-              </Picker>
-            </View>
-          </View>
-          <View style={styles.filtersRow}>
-            <View style={[styles.pickerContainer, styles.filterHalf, styles.themedPicker, styles.pickerShadow]}>
-              <Picker
-                selectedValue={filterRange}
-                onValueChange={(val) => {
-                  // Preset date ranges
-                  const today = new Date();
-                  const startOfWeek = new Date(today);
-                  startOfWeek.setDate(today.getDate() - today.getDay());
-                  startOfWeek.setHours(0,0,0,0);
-                  const endOfWeek = new Date(startOfWeek);
-                  endOfWeek.setDate(startOfWeek.getDate() + 6);
-                  endOfWeek.setHours(23,59,59,999);
-                  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-                  const startOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-                  const endOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0, 23, 59, 59, 999);
-
-                  const toISODate = (d) => d.toISOString().split('T')[0];
-
-                  switch (val) {
-                    case 'all':
-                      setFilterFrom('');
-                      setFilterTo('');
-                      setFilterRange('all');
-                      break;
-                    case 'this_week':
-                      setFilterFrom(toISODate(startOfWeek));
-                      setFilterTo(toISODate(endOfWeek));
-                      setFilterRange('this_week');
-                      break;
-                    case 'this_month':
-                      setFilterFrom(toISODate(startOfMonth));
-                      setFilterTo(toISODate(endOfMonth));
-                      setFilterRange('this_month');
-                      break;
-                    case 'next_month':
-                      setFilterFrom(toISODate(startOfNextMonth));
-                      setFilterTo(toISODate(endOfNextMonth));
-                      setFilterRange('next_month');
-                      break;
-                    default:
-                      setFilterFrom('');
-                      setFilterTo('');
-                      setFilterRange('all');
-                  }
-                }}
-                dropdownIconColor="#2196f3"
-              >
-                <Picker.Item label="All Dates" value="all" />
-                <Picker.Item label="This Week" value="this_week" />
-                <Picker.Item label="This Month" value="this_month" />
-                <Picker.Item label="Next Month" value="next_month" />
-              </Picker>
-            </View>
-          </View>
-          <View style={styles.filtersRow}>
-            <View style={[styles.pickerContainer, styles.filterInput, styles.themedPicker, styles.pickerShadow]}>
-              <Picker
-                selectedValue={filterCategory}
-                onValueChange={(val) => setFilterCategory(val)}
-                dropdownIconColor="#2196f3"
-              >
-                <Picker.Item label="All Categories" value="" />
-                <Picker.Item label="Homework" value="homework" />
-                <Picker.Item label="Exam" value="exam" />
-                <Picker.Item label="Project" value="project" />
-              </Picker>
-            </View>
+        <View style={styles.listContainer}>
+          <View style={styles.listHeader}>
+            <Text style={styles.listTitle}>Assignments List</Text>
+            {assignmentsLoadError && (
+              <Text style={styles.errorMessage}>Failed to load assignments</Text>
+            )}
           </View>
 
-          {/* Assignment list with editable category */}
-          <ScrollView style={{flex: 1}}>
+          {/* Modern Filter Section */}
+          <View style={styles.filtersSection}>
+            <View style={styles.filtersGrid}>
+              <View style={styles.filterCard}>
+                <Text style={styles.filterLabel}>Class</Text>
+                <View style={styles.modernPickerContainer}>
+                  <Picker
+                    selectedValue={filterClass}
+                    onValueChange={(itemValue) => setFilterClass(itemValue)}
+                    dropdownIconColor="#2196f3"
+                    style={styles.modernPicker}
+                  >
+                    <Picker.Item label="All Classes" value="" />
+                    {Object.entries(courses).map(([courseId, courseName]) => (
+                      <Picker.Item key={courseId} label={courseName} value={courseName} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.filterCard}>
+                <Text style={styles.filterLabel}>Date Range</Text>
+                <View style={styles.modernPickerContainer}>
+                  <Picker
+                    selectedValue={filterRange}
+                    onValueChange={(val) => {
+                      // Preset date ranges
+                      const today = new Date();
+                      const startOfWeek = new Date(today);
+                      startOfWeek.setDate(today.getDate() - today.getDay());
+                      startOfWeek.setHours(0,0,0,0);
+                      const endOfWeek = new Date(startOfWeek);
+                      endOfWeek.setDate(startOfWeek.getDate() + 6);
+                      endOfWeek.setHours(23,59,59,999);
+                      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+                      const startOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                      const endOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0, 23, 59, 59, 999);
+
+                      const toISODate = (d) => d.toISOString().split('T')[0];
+
+                      switch (val) {
+                        case 'all':
+                          setFilterFrom('');
+                          setFilterTo('');
+                          setFilterRange('all');
+                          break;
+                        case 'this_week':
+                          setFilterFrom(toISODate(startOfWeek));
+                          setFilterTo(toISODate(endOfWeek));
+                          setFilterRange('this_week');
+                          break;
+                        case 'this_month':
+                          setFilterFrom(toISODate(startOfMonth));
+                          setFilterTo(toISODate(endOfMonth));
+                          setFilterRange('this_month');
+                          break;
+                        case 'next_month':
+                          setFilterFrom(toISODate(startOfNextMonth));
+                          setFilterTo(toISODate(endOfNextMonth));
+                          setFilterRange('next_month');
+                          break;
+                        default:
+                          setFilterFrom('');
+                          setFilterTo('');
+                          setFilterRange('all');
+                      }
+                    }}
+                    dropdownIconColor="#2196f3"
+                    style={styles.modernPicker}
+                  >
+                    <Picker.Item label="All Dates" value="all" />
+                    <Picker.Item label="This Week" value="this_week" />
+                    <Picker.Item label="This Month" value="this_month" />
+                    <Picker.Item label="Next Month" value="next_month" />
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.filterCard}>
+                <Text style={styles.filterLabel}>Category</Text>
+                <View style={styles.modernPickerContainer}>
+                  <Picker
+                    selectedValue={filterCategory}
+                    onValueChange={(val) => setFilterCategory(val)}
+                    dropdownIconColor="#2196f3"
+                    style={styles.modernPicker}
+                  >
+                    <Picker.Item label="All Categories" value="" />
+                    <Picker.Item label="Homework" value="homework" />
+                    <Picker.Item label="Exam" value="exam" />
+                    <Picker.Item label="Project" value="project" />
+                  </Picker>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Modern Assignment Cards */}
+          <ScrollView style={styles.assignmentsScroll} showsVerticalScrollIndicator={false}>
             {getAllAssignments().length === 0 ? (
-              <Text style={styles.noEvents}>No assignments found</Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No assignments found</Text>
+                <Text style={styles.emptyStateSubtext}>Try adjusting your filters</Text>
+              </View>
             ) : (
               getAllAssignments().map((assignment, idx) => (
-                <View key={assignment._date + assignment.title + idx} style={styles.eventItem}>
-                  <Text style={styles.eventTitle}>{assignment.title}</Text>
-                  <Text style={styles.eventTime}>Due: {assignment._date} {assignment.time}</Text>
-                  {assignment.course ? <Text style={styles.eventDescription}>Class: {assignment.course}</Text> : null}
-                  {assignment.description ? <Text style={styles.eventDescription}>{assignment.description}</Text> : null}
-                  {assignment.url ? (
-                    <Text style={styles.eventLink} onPress={() => Linking.openURL(assignment.url)}>
-                      Open in Canvas
-                    </Text>
-                  ) : null}
-                  <View style={[styles.pickerContainer, {marginTop: 8}]}>
-                    <Text style={{fontSize: 14, marginBottom: 4}}>Category:</Text>
-                    <Picker
-                      selectedValue={assignment.category || ''}
-                      onValueChange={(val) => updateAssignmentCategory(assignment._date, assignment.title, val)}
-                      dropdownIconColor="#2196f3"
-                      style={{height: 40}}
-                    >
-                      <Picker.Item label="None" value="" />
-                      <Picker.Item label="Homework" value="homework" />
-                      <Picker.Item label="Exam" value="exam" />
-                      <Picker.Item label="Project" value="project" />
-                    </Picker>
+                <TouchableOpacity 
+                  key={assignment._date + assignment.title + idx} 
+                  style={styles.modernAssignmentCard}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.assignmentHeader}>
+                    <Text style={styles.modernAssignmentTitle}>{assignment.title}</Text>
+                    <View style={styles.assignmentMeta}>
+                      <Text style={styles.assignmentDueDate}>
+                        Due: {assignment._date} at {assignment.time}
+                      </Text>
+                      {assignment.course && (
+                        <Text style={styles.assignmentCourse}>{assignment.course}</Text>
+                      )}
+                    </View>
                   </View>
-                </View>
+
+                  {assignment.description && (
+                    <Text style={styles.assignmentDescription}>{assignment.description}</Text>
+                  )}
+
+                  {assignment.url && (
+                    <TouchableOpacity 
+                      style={styles.canvasLinkButton}
+                      onPress={() => Linking.openURL(assignment.url)}
+                    >
+                      <Text style={styles.canvasLinkText}>Open in Canvas</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <View style={styles.categorySection}>
+                    <Text style={styles.categoryLabel}>Category</Text>
+                    <View style={styles.categoryPickerContainer}>
+                      <Picker
+                        selectedValue={assignment.category || ''}
+                        onValueChange={(val) => updateAssignmentCategory(assignment._date, assignment.title, val)}
+                        dropdownIconColor="#2196f3"
+                        style={styles.categoryPicker}
+                      >
+                        <Picker.Item label="None" value="" />
+                        <Picker.Item label="Homework" value="homework" />
+                        <Picker.Item label="Exam" value="exam" />
+                        <Picker.Item label="Project" value="project" />
+                      </Picker>
+                    </View>
+                  </View>
+                </TouchableOpacity>
               ))
             )}
           </ScrollView>
@@ -840,6 +881,162 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     alignSelf: 'center',
   },
+  // Modern List View Styles
+  listContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+  },
+  listHeader: {
+    marginBottom: 24,
+  },
+  listTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#f44336',
+    fontStyle: 'italic',
+  },
+  filtersSection: {
+    marginBottom: 24,
+  },
+  filtersGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    justifyContent: 'space-between',
+  },
+  filterCard: {
+    flex: 1,
+    minWidth: 200,
+    maxWidth: 300,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 8,
+  },
+  modernPickerContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2196f3',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  modernPicker: {
+    height: 48,
+    color: '#333',
+  },
+  assignmentsScroll: {
+    flex: 1,
+  },
+  modernAssignmentCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  assignmentHeader: {
+    marginBottom: 12,
+  },
+  modernAssignmentTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  assignmentMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  assignmentDueDate: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  assignmentCourse: {
+    fontSize: 14,
+    color: '#2196f3',
+    fontWeight: '500',
+  },
+  assignmentDescription: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  canvasLinkButton: {
+    backgroundColor: '#2196f3',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  canvasLinkText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  categorySection: {
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 16,
+  },
+  categoryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 8,
+  },
+  categoryPickerContainer: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    overflow: 'hidden',
+  },
+  categoryPicker: {
+    height: 40,
+    color: '#333',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+  },
+  // Legacy styles for backward compatibility
   pickerContainer: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -861,13 +1058,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 1,
-  },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
-    textAlign: 'left',
   },
   eventsTitle: {
     fontSize: 18,
