@@ -31,6 +31,8 @@ export default function App() {
   const [filterTo, setFilterTo] = useState(''); // YYYY-MM-DD
   const [filterCategory, setFilterCategory] = useState(''); // e.g., Homework/Exam/Project
   const [filterRange, setFilterRange] = useState('all'); // all | this_week | this_month | next_month
+  const [customFrom, setCustomFrom] = useState(''); // YYYY-MM-DD
+  const [customTo, setCustomTo] = useState(''); // YYYY-MM-DD
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
@@ -325,7 +327,7 @@ useEffect(() => {
                   time: timeText,
                   type: 'assignment',
                   course,
-                  category: previousCategory || '',
+                  category: previousCategory || detectCategory(title),
                   source: 'canvas',
                   url,
                 }
@@ -398,10 +400,12 @@ useEffect(() => {
     const marked = {};
 
     const DOTS = {
-      canvas: { key: 'canvas', color: '#e53935' },      // Canvas assignments (red)
-      google: { key: 'google', color: '#1e88e5' },      // Google schedules (blue)
-      manual: { key: 'manual', color: '#fb8c00' },      // Manually added assignments (orange)
-      study: { key: 'study', color: '#4caf50' },        // Study blocks (green)
+      homework: { key: 'homework', color: '#1e88e5' },     // Blue
+      exam: { key: 'exam', color: '#e53935' },             // Red
+      project: { key: 'project', color: '#fb8c00' },       // Orange
+      presentation: { key: 'presentation', color: '#8e24aa' }, // Purple
+      google: { key: 'google', color: '#1e88e5' },         // Google schedules (blue)
+      study: { key: 'study', color: '#4caf50' },           // Study blocks (green)
     };
 
     // Build dots from events by source/type
@@ -410,13 +414,17 @@ useEffect(() => {
       const assignments = day.assignments || [];
       const dots = [];
 
-      // assignments: distinguish by source
+      // assignments: distinguish by category
       assignments.forEach(item => {
         if (item.type === 'assignment') {
-          if (item.source === 'canvas') {
-            if (!dots.find(d => d.key === DOTS.canvas.key)) dots.push(DOTS.canvas);
-          } else {
-            if (!dots.find(d => d.key === DOTS.manual.key)) dots.push(DOTS.manual);
+          const cat = (item.category || '').toLowerCase();
+          if (cat === 'homework' && !dots.find(d => d.key === DOTS.homework.key)) dots.push(DOTS.homework);
+          else if (cat === 'exam' && !dots.find(d => d.key === DOTS.exam.key)) dots.push(DOTS.exam);
+          else if (cat === 'project' && !dots.find(d => d.key === DOTS.project.key)) dots.push(DOTS.project);
+          else if (cat === 'presentation' && !dots.find(d => d.key === DOTS.presentation.key)) dots.push(DOTS.presentation);
+          else if (!cat) {
+            // If uncategorized, fall back to project color for visibility
+            if (!dots.find(d => d.key === DOTS.project.key)) dots.push(DOTS.project);
           }
         }
         if (item.type === 'schedule') {
@@ -480,6 +488,17 @@ useEffect(() => {
     return Number.POSITIVE_INFINITY;
   };
 
+  // Auto-detect assignment category from title keywords
+  const detectCategory = (title) => {
+    if (!title || typeof title !== 'string') return '';
+    const t = title.toLowerCase();
+    if (/(quiz|test|exam)/.test(t)) return 'exam';
+    if (/(essay|paper|project)/.test(t)) return 'project';
+    if (/(presentation|slides)/.test(t)) return 'presentation';
+    if (/(\bhw\b|homework|assignment)/.test(t)) return 'homework';
+    return '';
+  };
+
   const getEventsForSelectedDate = () => {
     const dateEvents = events[selectedDate]?.assignments || [];
     const dateStudyBlocks = studyBlocks[selectedDate]?.studyBlocks || [];
@@ -504,8 +523,10 @@ useEffect(() => {
     return all.filter(item => {
       if (filterClass && item.course !== filterClass) return false;
       if (filterCategory && (item.category || '').toLowerCase() !== filterCategory.toLowerCase()) return false;
-      if (filterFrom && (item._date < filterFrom)) return false;
-      if (filterTo && (item._date > filterTo)) return false;
+      const from = customFrom || filterFrom;
+      const to = customTo || filterTo;
+      if (from && (item._date < from)) return false;
+      if (to && (item._date > to)) return false;
       return true;
     }).sort((a, b) => a._date.localeCompare(b._date));
   };
@@ -678,8 +699,10 @@ useEffect(() => {
                     style={styles.modernPicker}
                   >
                     <Picker.Item label="All Classes" value="" />
-                    {Object.entries(courses).map(([courseId, courseName]) => (
-                      <Picker.Item key={courseId} label={courseName} value={courseName} />
+                    {Array.from(new Set(
+                      getAllAssignments().map(a => a.course).filter(Boolean)
+                    )).map((courseName) => (
+                      <Picker.Item key={courseName} label={courseName} value={courseName} />
                     ))}
                   </Picker>
                 </View>
@@ -745,6 +768,26 @@ useEffect(() => {
               </View>
 
               <View style={styles.filterCard}>
+                <Text style={styles.filterLabel}>From Date</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: '#fff' }]}
+                  placeholder="YYYY-MM-DD"
+                  value={customFrom}
+                  onChangeText={setCustomFrom}
+                />
+              </View>
+
+              <View style={styles.filterCard}>
+                <Text style={styles.filterLabel}>To Date</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: '#fff' }]}
+                  placeholder="YYYY-MM-DD"
+                  value={customTo}
+                  onChangeText={setCustomTo}
+                />
+              </View>
+
+              <View style={styles.filterCard}>
                 <Text style={styles.filterLabel}>Category</Text>
                 <View style={styles.modernPickerContainer}>
                   <Picker
@@ -757,6 +800,7 @@ useEffect(() => {
                     <Picker.Item label="Homework" value="homework" />
                     <Picker.Item label="Exam" value="exam" />
                     <Picker.Item label="Project" value="project" />
+                    <Picker.Item label="Presentation" value="presentation" />
                   </Picker>
                 </View>
               </View>
@@ -861,7 +905,12 @@ useEffect(() => {
                 key={index} 
                 style={[
                   styles.eventItem,
-                  event.type === 'assignment' ? styles.assignmentEvent : styles.studyEvent
+                  event.type === 'assignment' ?
+                    (event.category && event.category.toLowerCase() === 'exam' ? styles.examEvent :
+                      event.category && event.category.toLowerCase() === 'homework' ? styles.homeworkEvent :
+                      event.category && event.category.toLowerCase() === 'project' ? styles.projectEvent :
+                      event.category && event.category.toLowerCase() === 'presentation' ? styles.presentationEvent : styles.assignmentEvent)
+                    : styles.studyEvent
                 ]}
               >
                 <Text style={styles.eventTitle}>{event.title}</Text>
@@ -879,10 +928,15 @@ useEffect(() => {
                 )}
                 <View style={[
                   styles.eventTypeBadge,
-                  event.type === 'assignment' ? styles.assignmentBadge : styles.studyBadge
+                  event.type === 'assignment' ?
+                    (event.category && event.category.toLowerCase() === 'exam' ? styles.examBadge :
+                      event.category && event.category.toLowerCase() === 'homework' ? styles.homeworkBadge :
+                      event.category && event.category.toLowerCase() === 'project' ? styles.projectBadge :
+                      event.category && event.category.toLowerCase() === 'presentation' ? styles.presentationBadge : styles.assignmentBadge)
+                    : styles.studyBadge
                 ]}>
                   <Text style={styles.eventTypeText}>
-                    {event.type === 'assignment' ? 'Assignment' : 'Study Block'}
+                    {event.type === 'assignment' ? (event.category ? event.category.charAt(0).toUpperCase() + event.category.slice(1) : 'Assignment') : 'Study Block'}
                   </Text>
                 </View>
               </View>
@@ -1245,6 +1299,22 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#ff6b6b',
   },
+  homeworkEvent: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#1e88e5',
+  },
+  examEvent: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#e53935',
+  },
+  projectEvent: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#fb8c00',
+  },
+  presentationEvent: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#8e24aa',
+  },
   studyEvent: {
     borderLeftWidth: 4,
     borderLeftColor: '#4caf50',
@@ -1279,6 +1349,18 @@ const styles = StyleSheet.create({
   },
   assignmentBadge: {
     backgroundColor: '#ffebee',
+  },
+  homeworkBadge: {
+    backgroundColor: '#e3f2fd',
+  },
+  examBadge: {
+    backgroundColor: '#ffebee',
+  },
+  projectBadge: {
+    backgroundColor: '#fff3e0',
+  },
+  presentationBadge: {
+    backgroundColor: '#f3e5f5',
   },
   studyBadge: {
     backgroundColor: '#e8f5e8',
