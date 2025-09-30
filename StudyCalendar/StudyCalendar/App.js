@@ -49,7 +49,8 @@ export default function App() {
   const [assignmentsLoadError, setAssignmentsLoadError] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [localAssignments, setLocalAssignments] = useState({});
-  const [completedMap, setCompletedMap] = useState({}); // key: `${date}_${title}` => boolean
+  // Track per-assignment status: 'not_started' | 'in_progress' | 'completed'
+  const [statusMap, setStatusMap] = useState({}); // key: `${date}_${title}` => status
   const STORAGE_KEYS = {
     events: 'events',
     courses: 'courses',
@@ -952,7 +953,7 @@ useEffect(() => {
             {(() => {
               const all = getAllAssignments();
               const total = all.length;
-              const completed = all.filter(a => completedMap[`${a._date}_${a.title}`]).length;
+              const completed = all.filter(a => (statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed').length;
               const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
               return (
                 <View>
@@ -971,7 +972,7 @@ useEffect(() => {
             {(['homework','exam','project','presentation']).map(cat => {
               const all = getAllAssignments().filter(a => (a.category || '').toLowerCase() === cat);
               const total = all.length;
-              const completed = all.filter(a => completedMap[`${a._date}_${a.title}`]).length;
+              const completed = all.filter(a => (statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed').length;
               const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
               return (
                 <View key={cat} style={{ marginBottom: 12 }}>
@@ -990,7 +991,7 @@ useEffect(() => {
             {Array.from(new Set(getAllAssignments().map(a => a.course).filter(Boolean))).map(course => {
               const all = getAllAssignments().filter(a => a.course === course);
               const total = all.length;
-              const completed = all.filter(a => completedMap[`${a._date}_${a.title}`]).length;
+              const completed = all.filter(a => (statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed').length;
               const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
               return (
                 <View key={course} style={{ marginBottom: 12 }}>
@@ -1007,6 +1008,32 @@ useEffect(() => {
           <View style={styles.progressCard}>
             <Text style={styles.progressTitle}>Streak</Text>
             <Text style={styles.progressMeta}>3-day streak</Text>
+          </View>
+
+          {/* All Assignments with Status Controls */}
+          <View style={styles.progressCard}>
+            <Text style={styles.progressTitle}>All Assignments</Text>
+            {getAllAssignments().map((a, idx) => {
+              const key = `${a._date}_${a.title}`;
+              const st = statusMap[key] || 'not_started';
+              return (
+                <View key={key + idx} style={{ marginBottom: 12 }}>
+                  <Text style={styles.progressMeta}>{a.title} • {a._date} {a.time || ''} {a.course ? `• ${a.course}` : ''}</Text>
+                  <View style={styles.modernPickerContainer}>
+                    <Picker
+                      selectedValue={st}
+                      onValueChange={(val) => setStatusMap(prev => ({ ...prev, [key]: val }))}
+                      dropdownIconColor="#2196f3"
+                      style={styles.modernPicker}
+                    >
+                      <Picker.Item label="Not Started" value="not_started" />
+                      <Picker.Item label="In Progress" value="in_progress" />
+                      <Picker.Item label="Completed" value="completed" />
+                    </Picker>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
       )}
