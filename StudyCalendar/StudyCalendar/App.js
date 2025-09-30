@@ -33,6 +33,10 @@ export default function App() {
   const [filterRange, setFilterRange] = useState('all'); // all | this_week | this_month | next_month
   const [customFrom, setCustomFrom] = useState(''); // YYYY-MM-DD
   const [customTo, setCustomTo] = useState(''); // YYYY-MM-DD
+  const [fromMonth, setFromMonth] = useState('');
+  const [fromDay, setFromDay] = useState('');
+  const [toMonth, setToMonth] = useState('');
+  const [toDay, setToDay] = useState('');
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
@@ -496,7 +500,8 @@ useEffect(() => {
     if (/(essay|paper|project)/.test(t)) return 'project';
     if (/(presentation|slides)/.test(t)) return 'presentation';
     if (/(\bhw\b|homework|assignment)/.test(t)) return 'homework';
-    return '';
+    // Default to homework when no keyword matches
+    return 'homework';
   };
 
   const getEventsForSelectedDate = () => {
@@ -530,6 +535,58 @@ useEffect(() => {
       return true;
     }).sort((a, b) => a._date.localeCompare(b._date));
   };
+
+  // Generate month options for current year
+  const getMonthOptions = () => {
+    const months = [
+      { value: '01', label: 'January' },
+      { value: '02', label: 'February' },
+      { value: '03', label: 'March' },
+      { value: '04', label: 'April' },
+      { value: '05', label: 'May' },
+      { value: '06', label: 'June' },
+      { value: '07', label: 'July' },
+      { value: '08', label: 'August' },
+      { value: '09', label: 'September' },
+      { value: '10', label: 'October' },
+      { value: '11', label: 'November' },
+      { value: '12', label: 'December' }
+    ];
+    return months;
+  };
+
+  // Generate day options (1-31)
+  const getDayOptions = () => {
+    const days = [];
+    for (let i = 1; i <= 31; i++) {
+      days.push({ value: i.toString().padStart(2, '0'), label: i.toString() });
+    }
+    return days;
+  };
+
+  // Convert month/day to YYYY-MM-DD format
+  const formatDate = (month, day) => {
+    if (!month || !day) return '';
+    const currentYear = new Date().getFullYear();
+    return `${currentYear}-${month}-${day}`;
+  };
+
+  // Update custom dates when month/day changes
+  useEffect(() => {
+    if (fromMonth && fromDay) {
+      setCustomFrom(formatDate(fromMonth, fromDay));
+    } else {
+      setCustomFrom('');
+    }
+  }, [fromMonth, fromDay]);
+
+  useEffect(() => {
+    if (toMonth && toDay) {
+      setCustomTo(formatDate(toMonth, toDay));
+    } else {
+      setCustomTo('');
+    }
+  }, [toMonth, toDay]);
 
   const addNewAssignment = () => {
     if (!newAssignment.title || !newAssignment.dueDate) {
@@ -768,23 +825,71 @@ useEffect(() => {
               </View>
 
               <View style={styles.filterCard}>
-                <Text style={styles.filterLabel}>From Date</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: '#fff' }]}
-                  placeholder="YYYY-MM-DD"
-                  value={customFrom}
-                  onChangeText={setCustomFrom}
-                />
+                <Text style={styles.filterLabel}>From Month</Text>
+                <View style={styles.modernPickerContainer}>
+                  <Picker
+                    selectedValue={fromMonth}
+                    onValueChange={(v) => setFromMonth(v)}
+                    dropdownIconColor="#2196f3"
+                    style={styles.modernPicker}
+                  >
+                    <Picker.Item label="Any Month" value="" />
+                    {getMonthOptions().map(month => (
+                      <Picker.Item key={month.value} label={month.label} value={month.value} />
+                    ))}
+                  </Picker>
+                </View>
               </View>
 
               <View style={styles.filterCard}>
-                <Text style={styles.filterLabel}>To Date</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: '#fff' }]}
-                  placeholder="YYYY-MM-DD"
-                  value={customTo}
-                  onChangeText={setCustomTo}
-                />
+                <Text style={styles.filterLabel}>From Day</Text>
+                <View style={styles.modernPickerContainer}>
+                  <Picker
+                    selectedValue={fromDay}
+                    onValueChange={(v) => setFromDay(v)}
+                    dropdownIconColor="#2196f3"
+                    style={styles.modernPicker}
+                  >
+                    <Picker.Item label="Any Day" value="" />
+                    {getDayOptions().map(day => (
+                      <Picker.Item key={day.value} label={day.label} value={day.value} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.filterCard}>
+                <Text style={styles.filterLabel}>To Month</Text>
+                <View style={styles.modernPickerContainer}>
+                  <Picker
+                    selectedValue={toMonth}
+                    onValueChange={(v) => setToMonth(v)}
+                    dropdownIconColor="#2196f3"
+                    style={styles.modernPicker}
+                  >
+                    <Picker.Item label="Any Month" value="" />
+                    {getMonthOptions().map(month => (
+                      <Picker.Item key={month.value} label={month.label} value={month.value} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.filterCard}>
+                <Text style={styles.filterLabel}>To Day</Text>
+                <View style={styles.modernPickerContainer}>
+                  <Picker
+                    selectedValue={toDay}
+                    onValueChange={(v) => setToDay(v)}
+                    dropdownIconColor="#2196f3"
+                    style={styles.modernPicker}
+                  >
+                    <Picker.Item label="Any Day" value="" />
+                    {getDayOptions().map(day => (
+                      <Picker.Item key={day.value} label={day.label} value={day.value} />
+                    ))}
+                  </Picker>
+                </View>
               </View>
 
               <View style={styles.filterCard}>
