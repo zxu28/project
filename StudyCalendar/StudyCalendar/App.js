@@ -248,7 +248,7 @@ export default function App() {
                   time: timeText,
                   type: 'assignment',
                   course,
-                  category: 'Canvas',
+                  category: '', // Set to empty string instead of 'Canvas'
                   source: 'canvas',
                   url,
                 }
@@ -264,6 +264,26 @@ export default function App() {
       console.error('Error fetching Canvas assignments:', error);
       setAssignmentsLoadError(true);
     }
+  };
+
+  // Update assignment category by dateKey and title
+  const updateAssignmentCategory = (dateKey, title, newCategory) => {
+    setEvents(prevEvents => {
+      const day = prevEvents[dateKey];
+      if (!day || !day.assignments) return prevEvents;
+      const updatedAssignments = day.assignments.map(a =>
+        a.title === title && a.type === 'assignment'
+          ? { ...a, category: newCategory }
+          : a
+      );
+      return {
+        ...prevEvents,
+        [dateKey]: {
+          ...day,
+          assignments: updatedAssignments,
+        }
+      };
+    });
   };
 
   const getMarkedDates = () => {
@@ -329,10 +349,36 @@ export default function App() {
     return marked;
   };
 
+  // Convert time strings like "08:00", "8:00 AM", "08:00 PM" to minutes since midnight
+  const timeToMinutes = (timeText) => {
+    if (!timeText || typeof timeText !== 'string') return Number.POSITIVE_INFINITY;
+    const t = timeText.trim();
+    // Match 12-hour format with AM/PM
+    const ampm = t.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
+    if (ampm) {
+      let hours = parseInt(ampm[1], 10);
+      const minutes = parseInt(ampm[2], 10);
+      const isPM = ampm[3].toLowerCase() === 'pm';
+      hours = hours % 12 + (isPM ? 12 : 0);
+      return hours * 60 + minutes;
+    }
+    // Match 24-hour format HH:MM
+    const hhmm = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (hhmm) {
+      const hours = parseInt(hhmm[1], 10);
+      const minutes = parseInt(hhmm[2], 10);
+      return hours * 60 + minutes;
+    }
+    return Number.POSITIVE_INFINITY;
+  };
+
   const getEventsForSelectedDate = () => {
     const dateEvents = events[selectedDate]?.assignments || [];
     const dateStudyBlocks = studyBlocks[selectedDate]?.studyBlocks || [];
-    return [...dateEvents, ...dateStudyBlocks];
+    const combined = [...dateEvents, ...dateStudyBlocks];
+    // Sort by time ascending; items without a valid time go to the bottom
+    combined.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    return combined;
   };
 
   const getAllAssignments = () => {
@@ -592,11 +638,40 @@ export default function App() {
             </View>
           </View>
 
-          <EventsList 
-            events={getAllAssignments()}
-            studyBlocks={[]}
-            selectedDate={selectedDate}
-          />
+          {/* Assignment list with editable category */}
+          <ScrollView style={{flex: 1}}>
+            {getAllAssignments().length === 0 ? (
+              <Text style={styles.noEvents}>No assignments found</Text>
+            ) : (
+              getAllAssignments().map((assignment, idx) => (
+                <View key={assignment._date + assignment.title + idx} style={styles.eventItem}>
+                  <Text style={styles.eventTitle}>{assignment.title}</Text>
+                  <Text style={styles.eventTime}>Due: {assignment._date} {assignment.time}</Text>
+                  {assignment.course ? <Text style={styles.eventDescription}>Class: {assignment.course}</Text> : null}
+                  {assignment.description ? <Text style={styles.eventDescription}>{assignment.description}</Text> : null}
+                  {assignment.url ? (
+                    <Text style={styles.eventLink} onPress={() => Linking.openURL(assignment.url)}>
+                      Open in Canvas
+                    </Text>
+                  ) : null}
+                  <View style={[styles.pickerContainer, {marginTop: 8}]}>
+                    <Text style={{fontSize: 14, marginBottom: 4}}>Category:</Text>
+                    <Picker
+                      selectedValue={assignment.category || ''}
+                      onValueChange={(val) => updateAssignmentCategory(assignment._date, assignment.title, val)}
+                      dropdownIconColor="#2196f3"
+                      style={{height: 40}}
+                    >
+                      <Picker.Item label="None" value="" />
+                      <Picker.Item label="Homework" value="homework" />
+                      <Picker.Item label="Exam" value="exam" />
+                      <Picker.Item label="Project" value="project" />
+                    </Picker>
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
         </View>
       )}
 
