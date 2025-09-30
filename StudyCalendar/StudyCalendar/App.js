@@ -42,6 +42,17 @@ export default function App() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [localAssignments, setLocalAssignments] = useState({});
 
+  // Debug: verify courses and events shape before rendering (helps ensure Picker shows only course names)
+  try {
+    // Keep logs lightweight to avoid huge prints
+    const coursePreview = Object.entries(courses).slice(0, 10);
+    const eventDates = Object.keys(events).slice(0, 5);
+    console.log('Debug[ListView]: courses preview', coursePreview);
+    console.log('Debug[ListView]: events date keys preview', eventDates);
+  } catch (e) {
+    // no-op
+  }
+
   useEffect(() => {
     // Load Canvas first so List view shows data immediately
     fetchCanvasCourses().then(() => {
