@@ -4,6 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Calendar } from 'react-native-calendars';
 import ICAL from 'ical.js';
 import EventsList from './components/EventsList';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ICS feed URL (replace with your real one)
 const ICS_URL = "https://pomfret.instructure.com/feeds/calendars/user_U5a3dGrIE7Y45lSX7KUDM87bRYen3k9NWxyuvQOn.ics";
@@ -41,6 +42,64 @@ export default function App() {
   const [assignmentsLoadError, setAssignmentsLoadError] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [localAssignments, setLocalAssignments] = useState({});
+  const STORAGE_KEYS = {
+    events: 'events',
+    courses: 'courses',
+    studyBlocks: 'studyBlocks',
+  };
+
+  const saveProgress = async () => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.events, JSON.stringify(events));
+      await AsyncStorage.setItem(STORAGE_KEYS.courses, JSON.stringify(courses));
+      await AsyncStorage.setItem(STORAGE_KEYS.studyBlocks, JSON.stringify(studyBlocks));
+      console.log('Progress saved');
+    } catch (e) {
+      console.warn('Failed to save progress', e);
+    }
+  };
+
+  const loadSavedProgress = async () => {
+    try {
+      const [e, c, s] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.events),
+        AsyncStorage.getItem(STORAGE_KEYS.courses),
+        AsyncStorage.getItem(STORAGE_KEYS.studyBlocks),
+      ]);
+      if (e) {
+        try {
+          const parsed = JSON.parse(e);
+          if (parsed && typeof parsed === 'object') {
+            setEvents(prev => ({ ...parsed, ...prev }));
+          }
+        } catch {}
+      }
+      if (c) {
+        try {
+          const parsed = JSON.parse(c);
+          if (parsed && typeof parsed === 'object') {
+            setCourses(prev => ({ ...parsed, ...prev }));
+          }
+        } catch {}
+      }
+      if (s) {
+        try {
+          const parsed = JSON.parse(s);
+          if (parsed && typeof parsed === 'object') {
+            setStudyBlocks(prev => ({ ...parsed, ...prev }));
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('Failed to load saved progress', err);
+    }
+  };
+
+  // Auto-save on core state changes
+  useEffect(() => {
+    saveProgress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, courses, studyBlocks]);
 
   // Debug: verify courses and events shape before rendering (helps ensure Picker shows only course names)
   try {
@@ -53,7 +112,9 @@ export default function App() {
     // no-op
   }
 
-  useEffect(() => {
+useEffect(() => {
+  (async () => {
+    await loadSavedProgress();
     // Load Canvas first so List view shows data immediately
     fetchCanvasCourses().then(() => {
       fetchCanvasAssignments();
@@ -62,7 +123,8 @@ export default function App() {
     if (googleConnected) {
       fetchGoogleEvents();
     }
-  }, []);
+  })();
+}, []);
   const fetchCanvasCourses = async () => {
     try {
       const url = `${CANVAS_PROXY_URL}?endpoint=courses&per_page=100&enrollment_state=active`;
@@ -199,6 +261,7 @@ export default function App() {
     }, {});
     setEvents(cleaned);
     setGoogleConnected(false);
+    saveProgress();
   };
 
   const connectGoogle = async () => {
@@ -250,6 +313,7 @@ export default function App() {
 
           const existing = merged[dateKey]?.assignments || [];
           const isDuplicate = existing.some(e => e.title === title && e.time === timeText && e.type === 'assignment');
+          const previousCategory = (prev[dateKey]?.assignments || []).find(e => e.title === title && e.time === timeText && e.type === 'assignment')?.category || '';
           if (!isDuplicate) {
             merged[dateKey] = {
               ...merged[dateKey],
@@ -261,7 +325,7 @@ export default function App() {
                   time: timeText,
                   type: 'assignment',
                   course,
-                  category: '', // Set to empty string instead of 'Canvas'
+                  category: previousCategory || '',
                   source: 'canvas',
                   url,
                 }
@@ -319,6 +383,7 @@ export default function App() {
     // Clear local changes and reset state
     setLocalAssignments({});
     setHasUnsavedChanges(false);
+    saveProgress();
     Alert.alert('Success', 'Changes saved!');
   };
 
@@ -503,6 +568,7 @@ export default function App() {
       time: '23:59'
     });
     setShowAddModal(false);
+    saveProgress();
     Alert.alert('Success', 'Assignment added successfully!');
   };
 
