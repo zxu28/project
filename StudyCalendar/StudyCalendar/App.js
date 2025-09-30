@@ -37,6 +37,7 @@ export default function App() {
   const [fromDay, setFromDay] = useState('');
   const [toMonth, setToMonth] = useState('');
   const [toDay, setToDay] = useState('');
+  const [daysFromToday, setDaysFromToday] = useState(7); // Default to 7 days from today
   const [newAssignment, setNewAssignment] = useState({
     title: '',
     description: '',
@@ -524,14 +525,28 @@ useEffect(() => {
       });
     });
 
-    // Apply filters
+    // Apply filters - prioritize daysFromToday over other date filters
     return all.filter(item => {
       if (filterClass && item.course !== filterClass) return false;
       if (filterCategory && (item.category || '').toLowerCase() !== filterCategory.toLowerCase()) return false;
-      const from = customFrom || filterFrom;
-      const to = customTo || filterTo;
-      if (from && (item._date < from)) return false;
-      if (to && (item._date > to)) return false;
+      
+      // Use daysFromToday range if set, otherwise fall back to other date filters
+      if (daysFromToday !== null && daysFromToday !== undefined) {
+        const today = new Date().toISOString().split('T')[0];
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + daysFromToday);
+        const endDateStr = endDate.toISOString().split('T')[0];
+        
+        if (item._date < today) return false;
+        if (item._date > endDateStr) return false;
+      } else {
+        // Fallback to original date filtering
+        const from = customFrom || filterFrom;
+        const to = customTo || filterTo;
+        if (from && (item._date < from)) return false;
+        if (to && (item._date > to)) return false;
+      }
+      
       return true;
     }).sort((a, b) => a._date.localeCompare(b._date));
   };
@@ -587,6 +602,19 @@ useEffect(() => {
       setCustomTo('');
     }
   }, [toMonth, toDay]);
+
+  // Update date range based on days from today
+  useEffect(() => {
+    const today = new Date();
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() + daysFromToday);
+    
+    const todayStr = today.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    setCustomFrom(todayStr);
+    setCustomTo(endDateStr);
+  }, [daysFromToday]);
 
   const addNewAssignment = () => {
     if (!newAssignment.title || !newAssignment.dueDate) {
@@ -766,128 +794,22 @@ useEffect(() => {
               </View>
 
               <View style={styles.filterCard}>
-                <Text style={styles.filterLabel}>Date Range</Text>
+                <Text style={styles.filterLabel}>Days from Today</Text>
                 <View style={styles.modernPickerContainer}>
                   <Picker
-                    selectedValue={filterRange}
-                    onValueChange={(val) => {
-                      // Preset date ranges
-                      const today = new Date();
-                      const startOfWeek = new Date(today);
-                      startOfWeek.setDate(today.getDate() - today.getDay());
-                      startOfWeek.setHours(0,0,0,0);
-                      const endOfWeek = new Date(startOfWeek);
-                      endOfWeek.setDate(startOfWeek.getDate() + 6);
-                      endOfWeek.setHours(23,59,59,999);
-                      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-                      const startOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-                      const endOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0, 23, 59, 59, 999);
-
-                      const toISODate = (d) => d.toISOString().split('T')[0];
-
-                      switch (val) {
-                        case 'all':
-                          setFilterFrom('');
-                          setFilterTo('');
-                          setFilterRange('all');
-                          break;
-                        case 'this_week':
-                          setFilterFrom(toISODate(startOfWeek));
-                          setFilterTo(toISODate(endOfWeek));
-                          setFilterRange('this_week');
-                          break;
-                        case 'this_month':
-                          setFilterFrom(toISODate(startOfMonth));
-                          setFilterTo(toISODate(endOfMonth));
-                          setFilterRange('this_month');
-                          break;
-                        case 'next_month':
-                          setFilterFrom(toISODate(startOfNextMonth));
-                          setFilterTo(toISODate(endOfNextMonth));
-                          setFilterRange('next_month');
-                          break;
-                        default:
-                          setFilterFrom('');
-                          setFilterTo('');
-                          setFilterRange('all');
-                      }
-                    }}
+                    selectedValue={daysFromToday}
+                    onValueChange={(val) => setDaysFromToday(val)}
                     dropdownIconColor="#2196f3"
                     style={styles.modernPicker}
                   >
-                    <Picker.Item label="All Dates" value="all" />
-                    <Picker.Item label="This Week" value="this_week" />
-                    <Picker.Item label="This Month" value="this_month" />
-                    <Picker.Item label="Next Month" value="next_month" />
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.filterCard}>
-                <Text style={styles.filterLabel}>From Month</Text>
-                <View style={styles.modernPickerContainer}>
-                  <Picker
-                    selectedValue={fromMonth}
-                    onValueChange={(v) => setFromMonth(v)}
-                    dropdownIconColor="#2196f3"
-                    style={styles.modernPicker}
-                  >
-                    <Picker.Item label="Any Month" value="" />
-                    {getMonthOptions().map(month => (
-                      <Picker.Item key={month.value} label={month.label} value={month.value} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.filterCard}>
-                <Text style={styles.filterLabel}>From Day</Text>
-                <View style={styles.modernPickerContainer}>
-                  <Picker
-                    selectedValue={fromDay}
-                    onValueChange={(v) => setFromDay(v)}
-                    dropdownIconColor="#2196f3"
-                    style={styles.modernPicker}
-                  >
-                    <Picker.Item label="Any Day" value="" />
-                    {getDayOptions().map(day => (
-                      <Picker.Item key={day.value} label={day.label} value={day.value} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.filterCard}>
-                <Text style={styles.filterLabel}>To Month</Text>
-                <View style={styles.modernPickerContainer}>
-                  <Picker
-                    selectedValue={toMonth}
-                    onValueChange={(v) => setToMonth(v)}
-                    dropdownIconColor="#2196f3"
-                    style={styles.modernPicker}
-                  >
-                    <Picker.Item label="Any Month" value="" />
-                    {getMonthOptions().map(month => (
-                      <Picker.Item key={month.value} label={month.label} value={month.value} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              <View style={styles.filterCard}>
-                <Text style={styles.filterLabel}>To Day</Text>
-                <View style={styles.modernPickerContainer}>
-                  <Picker
-                    selectedValue={toDay}
-                    onValueChange={(v) => setToDay(v)}
-                    dropdownIconColor="#2196f3"
-                    style={styles.modernPicker}
-                  >
-                    <Picker.Item label="Any Day" value="" />
-                    {getDayOptions().map(day => (
-                      <Picker.Item key={day.value} label={day.label} value={day.value} />
-                    ))}
+                    <Picker.Item label="Today Only" value={0} />
+                    <Picker.Item label="Next 3 Days" value={3} />
+                    <Picker.Item label="Next 7 Days" value={7} />
+                    <Picker.Item label="Next 14 Days" value={14} />
+                    <Picker.Item label="Next 30 Days" value={30} />
+                    <Picker.Item label="Next 60 Days" value={60} />
+                    <Picker.Item label="Next 90 Days" value={90} />
+                    <Picker.Item label="All Future" value={365} />
                   </Picker>
                 </View>
               </View>
