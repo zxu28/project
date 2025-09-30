@@ -24,7 +24,7 @@ export default function App() {
   const [studyBlocks, setStudyBlocks] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [currentPage, setCurrentPage] = useState('list'); // 'home' | 'list'
+  const [currentPage, setCurrentPage] = useState('list'); // 'home' | 'list' | 'progress'
   const [googleConnected, setGoogleConnected] = useState(true);
   const [filterClass, setFilterClass] = useState('');
   const [filterFrom, setFilterFrom] = useState(''); // YYYY-MM-DD
@@ -49,6 +49,7 @@ export default function App() {
   const [assignmentsLoadError, setAssignmentsLoadError] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [localAssignments, setLocalAssignments] = useState({});
+  const [completedMap, setCompletedMap] = useState({}); // key: `${date}_${title}` => boolean
   const STORAGE_KEYS = {
     events: 'events',
     courses: 'courses',
@@ -698,6 +699,13 @@ useEffect(() => {
             <Text style={styles.addButtonText}>Open List View</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setCurrentPage('progress')}
+          >
+            <Text style={styles.addButtonText}>Open Progress</Text>
+          </TouchableOpacity>
+
           {googleConnected ? (
             <TouchableOpacity style={[styles.addButton, styles.disconnectBtn]} onPress={disconnectGoogle}>
               <Text style={styles.addButtonText}>Disconnect Google</Text>
@@ -717,6 +725,13 @@ useEffect(() => {
             onPress={() => setCurrentPage('home')}
           >
             <Text style={styles.addButtonText}>← Back to Calendar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setCurrentPage('progress')}
+          >
+            <Text style={styles.addButtonText}>Open Progress</Text>
           </TouchableOpacity>
 
           {googleConnected ? (
@@ -762,7 +777,7 @@ useEffect(() => {
             textDayHeaderFontSize: 13,
           }}
         />
-      ) : (
+      ) : currentPage === 'list' ? (
         <View style={styles.listContainer}>
           <View style={styles.listHeader}>
             <Text style={styles.listTitle}>Assignments List</Text>
@@ -915,6 +930,84 @@ useEffect(() => {
               })
             )}
           </ScrollView>
+        </View>
+      ) : (
+        <View style={styles.listContainer}>
+          <View style={styles.listHeader}>
+            <Text style={styles.listTitle}>Progress Dashboard</Text>
+          </View>
+
+          <View style={styles.primaryActionsRow}>
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={() => setCurrentPage('home')}
+            >
+              <Text style={styles.addButtonText}>← Back to Calendar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Overall Progress */}
+          <View style={styles.progressCard}>
+            <Text style={styles.progressTitle}>Overall Progress</Text>
+            {(() => {
+              const all = getAllAssignments();
+              const total = all.length;
+              const completed = all.filter(a => completedMap[`${a._date}_${a.title}`]).length;
+              const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+              return (
+                <View>
+                  <Text style={styles.progressMeta}>{completed} / {total} completed</Text>
+                  <View style={styles.progressBarTrack}>
+                    <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
+                  </View>
+                </View>
+              );
+            })()}
+          </View>
+
+          {/* By Category */}
+          <View style={styles.progressCard}>
+            <Text style={styles.progressTitle}>By Category</Text>
+            {(['homework','exam','project','presentation']).map(cat => {
+              const all = getAllAssignments().filter(a => (a.category || '').toLowerCase() === cat);
+              const total = all.length;
+              const completed = all.filter(a => completedMap[`${a._date}_${a.title}`]).length;
+              const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+              return (
+                <View key={cat} style={{ marginBottom: 12 }}>
+                  <Text style={styles.progressMeta}>{cat.charAt(0).toUpperCase() + cat.slice(1)}: {completed}/{total}</Text>
+                  <View style={styles.progressBarTrack}>
+                    <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* By Course */}
+          <View style={styles.progressCard}>
+            <Text style={styles.progressTitle}>By Course</Text>
+            {Array.from(new Set(getAllAssignments().map(a => a.course).filter(Boolean))).map(course => {
+              const all = getAllAssignments().filter(a => a.course === course);
+              const total = all.length;
+              const completed = all.filter(a => completedMap[`${a._date}_${a.title}`]).length;
+              const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+              return (
+                <View key={course} style={{ marginBottom: 12 }}>
+                  <Text style={styles.progressMeta}>{course}: {completed}/{total}</Text>
+                  <View style={styles.progressBarTrack}>
+                    <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Streak Placeholder */}
+          <View style={styles.progressCard}>
+            <Text style={styles.progressTitle}>Streak</Text>
+            <Text style={styles.progressMeta}>3-day streak</Text>
+          </View>
         </View>
       )}
 
@@ -1247,6 +1340,42 @@ const styles = StyleSheet.create({
   emptyStateSubtext: {
     fontSize: 14,
     color: '#999',
+  },
+  progressCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  progressTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  progressMeta: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  progressBarTrack: {
+    height: 10,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 10,
+    backgroundColor: '#2196f3',
+    borderRadius: 8,
+    width: '0%',
   },
   saveChangesSection: {
     marginBottom: 20,
