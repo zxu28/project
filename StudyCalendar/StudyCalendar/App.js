@@ -39,6 +39,8 @@ export default function App() {
     category: '',
   });
   const [assignmentsLoadError, setAssignmentsLoadError] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [localAssignments, setLocalAssignments] = useState({});
 
   useEffect(() => {
     // Load Canvas first so List view shows data immediately
@@ -266,24 +268,54 @@ export default function App() {
     }
   };
 
-  // Update assignment category by dateKey and title
+  // Update assignment category in local state (for List View)
   const updateAssignmentCategory = (dateKey, title, newCategory) => {
-    setEvents(prevEvents => {
-      const day = prevEvents[dateKey];
-      if (!day || !day.assignments) return prevEvents;
-      const updatedAssignments = day.assignments.map(a =>
-        a.title === title && a.type === 'assignment'
-          ? { ...a, category: newCategory }
-          : a
-      );
-      return {
-        ...prevEvents,
-        [dateKey]: {
-          ...day,
-          assignments: updatedAssignments,
-        }
-      };
+    setLocalAssignments(prev => {
+      const key = `${dateKey}_${title}`;
+      const updated = { ...prev, [key]: { ...prev[key], category: newCategory } };
+      setHasUnsavedChanges(true);
+      return updated;
     });
+  };
+
+  // Save changes from List View to main events state
+  const saveChanges = () => {
+    if (!hasUnsavedChanges) return;
+
+    setEvents(prevEvents => {
+      const updated = { ...prevEvents };
+      
+      // Apply local changes to the main events state
+      Object.keys(localAssignments).forEach(key => {
+        const [dateKey, title] = key.split('_');
+        const localChange = localAssignments[key];
+        
+        if (updated[dateKey] && updated[dateKey].assignments) {
+          updated[dateKey] = {
+            ...updated[dateKey],
+            assignments: updated[dateKey].assignments.map(a =>
+              a.title === title && a.type === 'assignment'
+                ? { ...a, category: localChange.category }
+                : a
+            )
+          };
+        }
+      });
+
+      return updated;
+    });
+
+    // Clear local changes and reset state
+    setLocalAssignments({});
+    setHasUnsavedChanges(false);
+    Alert.alert('Success', 'Changes saved!');
+  };
+
+  // Get assignment with local changes applied
+  const getAssignmentWithLocalChanges = (assignment) => {
+    const key = `${assignment._date}_${assignment.title}`;
+    const localChange = localAssignments[key];
+    return localChange ? { ...assignment, ...localChange } : assignment;
   };
 
   const getMarkedDates = () => {
@@ -654,6 +686,25 @@ export default function App() {
             </View>
           </View>
 
+          {/* Save Changes Button */}
+          <View style={styles.saveChangesSection}>
+            <TouchableOpacity 
+              style={[
+                styles.saveChangesButton,
+                !hasUnsavedChanges && styles.saveChangesButtonDisabled
+              ]}
+              onPress={saveChanges}
+              disabled={!hasUnsavedChanges}
+            >
+              <Text style={[
+                styles.saveChangesButtonText,
+                !hasUnsavedChanges && styles.saveChangesButtonTextDisabled
+              ]}>
+                {hasUnsavedChanges ? 'Save Changes' : 'No Changes to Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Modern Assignment Cards */}
           <ScrollView style={styles.assignmentsScroll} showsVerticalScrollIndicator={false}>
             {getAllAssignments().length === 0 ? (
@@ -662,55 +713,58 @@ export default function App() {
                 <Text style={styles.emptyStateSubtext}>Try adjusting your filters</Text>
               </View>
             ) : (
-              getAllAssignments().map((assignment, idx) => (
-                <TouchableOpacity 
-                  key={assignment._date + assignment.title + idx} 
-                  style={styles.modernAssignmentCard}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.assignmentHeader}>
-                    <Text style={styles.modernAssignmentTitle}>{assignment.title}</Text>
-                    <View style={styles.assignmentMeta}>
-                      <Text style={styles.assignmentDueDate}>
-                        Due: {assignment._date} at {assignment.time}
-                      </Text>
-                      {assignment.course && (
-                        <Text style={styles.assignmentCourse}>{assignment.course}</Text>
-                      )}
+              getAllAssignments().map((assignment, idx) => {
+                const assignmentWithChanges = getAssignmentWithLocalChanges(assignment);
+                return (
+                  <TouchableOpacity 
+                    key={assignment._date + assignment.title + idx} 
+                    style={styles.modernAssignmentCard}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.assignmentHeader}>
+                      <Text style={styles.modernAssignmentTitle}>{assignmentWithChanges.title}</Text>
+                      <View style={styles.assignmentMeta}>
+                        <Text style={styles.assignmentDueDate}>
+                          Due: {assignmentWithChanges._date} at {assignmentWithChanges.time}
+                        </Text>
+                        {assignmentWithChanges.course && (
+                          <Text style={styles.assignmentCourse}>{assignmentWithChanges.course}</Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
 
-                  {assignment.description && (
-                    <Text style={styles.assignmentDescription}>{assignment.description}</Text>
-                  )}
+                    {assignmentWithChanges.description && (
+                      <Text style={styles.assignmentDescription}>{assignmentWithChanges.description}</Text>
+                    )}
 
-                  {assignment.url && (
-                    <TouchableOpacity 
-                      style={styles.canvasLinkButton}
-                      onPress={() => Linking.openURL(assignment.url)}
-                    >
-                      <Text style={styles.canvasLinkText}>Open in Canvas</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <View style={styles.categorySection}>
-                    <Text style={styles.categoryLabel}>Category</Text>
-                    <View style={styles.categoryPickerContainer}>
-                      <Picker
-                        selectedValue={assignment.category || ''}
-                        onValueChange={(val) => updateAssignmentCategory(assignment._date, assignment.title, val)}
-                        dropdownIconColor="#2196f3"
-                        style={styles.categoryPicker}
+                    {assignmentWithChanges.url && (
+                      <TouchableOpacity 
+                        style={styles.canvasLinkButton}
+                        onPress={() => Linking.openURL(assignmentWithChanges.url)}
                       >
-                        <Picker.Item label="None" value="" />
-                        <Picker.Item label="Homework" value="homework" />
-                        <Picker.Item label="Exam" value="exam" />
-                        <Picker.Item label="Project" value="project" />
-                      </Picker>
+                        <Text style={styles.canvasLinkText}>Open in Canvas</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <View style={styles.categorySection}>
+                      <Text style={styles.categoryLabel}>Category</Text>
+                      <View style={styles.categoryPickerContainer}>
+                        <Picker
+                          selectedValue={assignmentWithChanges.category || ''}
+                          onValueChange={(val) => updateAssignmentCategory(assignment._date, assignment.title, val)}
+                          dropdownIconColor="#2196f3"
+                          style={styles.categoryPicker}
+                        >
+                          <Picker.Item label="None" value="" />
+                          <Picker.Item label="Homework" value="homework" />
+                          <Picker.Item label="Exam" value="exam" />
+                          <Picker.Item label="Project" value="project" />
+                        </Picker>
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))
+                  </TouchableOpacity>
+                );
+              })
             )}
           </ScrollView>
         </View>
@@ -1034,6 +1088,34 @@ const styles = StyleSheet.create({
   },
   emptyStateSubtext: {
     fontSize: 14,
+    color: '#999',
+  },
+  saveChangesSection: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  saveChangesButton: {
+    backgroundColor: '#2196f3',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  saveChangesButtonDisabled: {
+    backgroundColor: '#e0e0e0',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  saveChangesButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveChangesButtonTextDisabled: {
     color: '#999',
   },
   // Legacy styles for backward compatibility
