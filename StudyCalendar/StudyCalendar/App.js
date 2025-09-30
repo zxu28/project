@@ -51,6 +51,7 @@ export default function App() {
   const [localAssignments, setLocalAssignments] = useState({});
   // Track per-assignment status: 'not_started' | 'in_progress' | 'completed'
   const [statusMap, setStatusMap] = useState({}); // key: `${date}_${title}` => status
+  const [progressViewMode, setProgressViewMode] = useState('weekly'); // 'weekly' | 'monthly'
   const STORAGE_KEYS = {
     events: 'events',
     courses: 'courses',
@@ -133,7 +134,7 @@ useEffect(() => {
       fetchGoogleEvents();
     }
   })();
-}, []);
+  }, []);
   const fetchCanvasCourses = async () => {
     try {
       const url = `${CANVAS_PROXY_URL}?endpoint=courses&per_page=100&enrollment_state=active`;
@@ -405,7 +406,7 @@ useEffect(() => {
 
   const getMarkedDates = () => {
     const marked = {};
-
+    
     const DOTS = {
       homework: { key: 'homework', color: '#1e88e5' },     // Blue
       exam: { key: 'exam', color: '#e53935' },             // Red
@@ -440,10 +441,10 @@ useEffect(() => {
       });
 
       if (dots.length > 0) {
-        marked[date] = {
+      marked[date] = {
           ...(marked[date] || {}),
           dots,
-          marked: true,
+        marked: true,
         };
       }
     });
@@ -452,10 +453,10 @@ useEffect(() => {
     Object.keys(studyBlocks).forEach(date => {
       const existing = marked[date]?.dots || [];
       if (!existing.find(d => d.key === DOTS.study.key)) existing.push(DOTS.study);
-      marked[date] = {
+        marked[date] = {
         ...(marked[date] || {}),
         dots: existing,
-        marked: true,
+          marked: true,
       };
     });
 
@@ -505,6 +506,41 @@ useEffect(() => {
     if (/(\bhw\b|homework|assignment)/.test(t)) return 'homework';
     // Default to homework when no keyword matches
     return 'homework';
+  };
+
+  // ----- Progress helpers -----
+  const startOfWeek = (d) => {
+    const date = new Date(d);
+    const day = date.getDay(); // 0 Sun ... 6 Sat
+    const diff = (day + 6) % 7; // make Monday=0
+    date.setDate(date.getDate() - diff);
+    date.setHours(0,0,0,0);
+    return date;
+  };
+
+  const endOfWeek = (d) => {
+    const sow = startOfWeek(d);
+    const eow = new Date(sow);
+    eow.setDate(sow.getDate() + 6);
+    eow.setHours(23,59,59,999);
+    return eow;
+  };
+
+  const getThisWeekAssignments = () => {
+    const today = new Date();
+    const sow = startOfWeek(today);
+    const eow = endOfWeek(today);
+    const sowStr = sow.toISOString().split('T')[0];
+    const eowStr = eow.toISOString().split('T')[0];
+    return getAllAssignments().filter(a => a._date >= sowStr && a._date <= eowStr);
+  };
+
+  const groupByDate = (assignments) => {
+    return assignments.reduce((acc, a) => {
+      if (!acc[a._date]) acc[a._date] = [];
+      acc[a._date].push(a);
+      return acc;
+    }, {});
   };
 
   const getEventsForSelectedDate = () => {
@@ -683,16 +719,16 @@ useEffect(() => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Study Calendar</Text>
-
+      
       {currentPage === 'home' && (
         <View style={styles.primaryActionsRow}>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => setShowAddModal(true)}
-          >
-            <Text style={styles.addButtonText}>+ Add Assignment</Text>
-          </TouchableOpacity>
-
+      <TouchableOpacity 
+        style={styles.addButton}
+        onPress={() => setShowAddModal(true)}
+      >
+        <Text style={styles.addButtonText}>+ Add Assignment</Text>
+      </TouchableOpacity>
+      
           <TouchableOpacity 
             style={styles.addButton}
             onPress={() => setCurrentPage('list')}
@@ -749,35 +785,35 @@ useEffect(() => {
       
       
       {currentPage === 'home' ? (
-        <Calendar
-          style={styles.calendar}
-          current={selectedDate}
-          onDayPress={(day) => setSelectedDate(day.dateString)}
-          markedDates={getMarkedDates()}
+      <Calendar
+        style={styles.calendar}
+        current={selectedDate}
+        onDayPress={(day) => setSelectedDate(day.dateString)}
+        markedDates={getMarkedDates()}
           markingType={'multi-dot'}
-          theme={{
-            backgroundColor: '#ffffff',
-            calendarBackground: '#ffffff',
-            textSectionTitleColor: '#b6c1cd',
-            selectedDayBackgroundColor: '#2196f3',
-            selectedDayTextColor: '#ffffff',
-            todayTextColor: '#2196f3',
-            dayTextColor: '#2d4150',
-            textDisabledColor: '#d9e1e8',
-            dotColor: '#00adf5',
-            selectedDotColor: '#ffffff',
-            arrowColor: '#2196f3',
-            disabledArrowColor: '#d9e1e8',
-            monthTextColor: '#2196f3',
-            indicatorColor: '#2196f3',
-            textDayFontWeight: '300',
-            textMonthFontWeight: 'bold',
-            textDayHeaderFontWeight: '300',
-            textDayFontSize: 16,
-            textMonthFontSize: 16,
-            textDayHeaderFontSize: 13,
-          }}
-        />
+        theme={{
+          backgroundColor: '#ffffff',
+          calendarBackground: '#ffffff',
+          textSectionTitleColor: '#b6c1cd',
+          selectedDayBackgroundColor: '#2196f3',
+          selectedDayTextColor: '#ffffff',
+          todayTextColor: '#2196f3',
+          dayTextColor: '#2d4150',
+          textDisabledColor: '#d9e1e8',
+          dotColor: '#00adf5',
+          selectedDotColor: '#ffffff',
+          arrowColor: '#2196f3',
+          disabledArrowColor: '#d9e1e8',
+          monthTextColor: '#2196f3',
+          indicatorColor: '#2196f3',
+          textDayFontWeight: '300',
+          textMonthFontWeight: 'bold',
+          textDayHeaderFontWeight: '300',
+          textDayFontSize: 16,
+          textMonthFontSize: 16,
+          textDayHeaderFontSize: 13,
+        }}
+      />
       ) : currentPage === 'list' ? (
         <View style={styles.listContainer}>
           <View style={styles.listHeader}>
@@ -976,9 +1012,18 @@ useEffect(() => {
               const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
               return (
                 <View key={cat} style={{ marginBottom: 12 }}>
-                  <Text style={styles.progressMeta}>{cat.charAt(0).toUpperCase() + cat.slice(1)}: {completed}/{total}</Text>
+                  <Text style={styles.progressMeta}>
+                    {(cat === 'homework' ? '📘 ' : cat === 'exam' ? '🧪 ' : cat === 'project' ? '📝 ' : '🎤 ')}
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}: {completed}/{total}
+                  </Text>
                   <View style={styles.progressBarTrack}>
-                    <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
+                    <View style={[styles.progressBarFill,
+                      cat === 'homework' ? styles.progressFillHomework :
+                      cat === 'exam' ? styles.progressFillExam :
+                      cat === 'project' ? styles.progressFillProject :
+                      styles.progressFillPresentation,
+                      { width: `${pct}%` }
+                    ]} />
                   </View>
                 </View>
               );
@@ -1004,10 +1049,64 @@ useEffect(() => {
             })}
           </View>
 
-          {/* Streak Placeholder */}
+          {/* Weekly Assignments */}
           <View style={styles.progressCard}>
-            <Text style={styles.progressTitle}>Streak</Text>
-            <Text style={styles.progressMeta}>3-day streak</Text>
+            <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 8}}>
+              <Text style={styles.progressTitle}>This Week's Assignments</Text>
+              <View style={styles.modernPickerContainer}>
+                <Picker
+                  selectedValue={progressViewMode}
+                  onValueChange={(v) => setProgressViewMode(v)}
+                  dropdownIconColor="#2196f3"
+                  style={styles.modernPicker}
+                >
+                  <Picker.Item label="Weekly" value="weekly" />
+                  <Picker.Item label="Monthly" value="monthly" />
+                </Picker>
+              </View>
+            </View>
+            {(() => {
+              const weekly = progressViewMode === 'weekly' ? getThisWeekAssignments() : getAllAssignments();
+              const groups = groupByDate(weekly);
+              const dates = Object.keys(groups).sort();
+              if (dates.length === 0) return <Text style={styles.progressMeta}>No assignments in this period.</Text>;
+              return (
+                <View>
+                  {dates.map(date => (
+                    <View key={date} style={{ marginBottom: 12 }}>
+                      <Text style={[styles.progressMeta, {fontWeight:'600', color:'#333'}]}>{date}</Text>
+                      {groups[date].map((a, idx) => {
+                        const key = `${a._date}_${a.title}`;
+                        const st = statusMap[key] || 'not_started';
+                        const faded = st === 'completed';
+                        const highlighted = st === 'in_progress';
+                        return (
+                          <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress]}>
+                            <Text style={[styles.weekItemTitle, faded && styles.weekItemTitleCompleted]}>
+                              {(a.category || '').toLowerCase() === 'homework' ? '📘 ' : (a.category||'').toLowerCase()==='exam' ? '🧪 ' : (a.category||'').toLowerCase()==='project' ? '📝 ' : (a.category||'').toLowerCase()==='presentation' ? '🎤 ' : ''}
+                              {a.title}
+                            </Text>
+                            <Text style={styles.weekItemMeta}>{a.course ? `${a.course} • ` : ''}{a._date} {a.time || ''}</Text>
+                            <View style={styles.modernPickerContainer}>
+                              <Picker
+                                selectedValue={st}
+                                onValueChange={(val) => setStatusMap(prev => ({ ...prev, [key]: val }))}
+                                dropdownIconColor="#2196f3"
+                                style={styles.modernPicker}
+                              >
+                                <Picker.Item label="Not Started" value="not_started" />
+                                <Picker.Item label="In Progress" value="in_progress" />
+                                <Picker.Item label="Completed" value="completed" />
+                              </Picker>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
           </View>
 
           {/* All Assignments with Status Controls */}
@@ -1039,57 +1138,57 @@ useEffect(() => {
       )}
 
       {currentPage === 'home' && (
-        <ScrollView style={styles.eventsContainer}>
-          <Text style={styles.eventsTitle}>
-            Events for {new Date(selectedDate).toLocaleDateString()}
-          </Text>
-          
-          {getEventsForSelectedDate().length === 0 ? (
-            <Text style={styles.noEvents}>No events scheduled for this date</Text>
-          ) : (
-            getEventsForSelectedDate().map((event, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.eventItem,
+      <ScrollView style={styles.eventsContainer}>
+        <Text style={styles.eventsTitle}>
+          Events for {new Date(selectedDate).toLocaleDateString()}
+        </Text>
+        
+        {getEventsForSelectedDate().length === 0 ? (
+          <Text style={styles.noEvents}>No events scheduled for this date</Text>
+        ) : (
+          getEventsForSelectedDate().map((event, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.eventItem,
                   event.type === 'assignment' ?
                     (event.category && event.category.toLowerCase() === 'exam' ? styles.examEvent :
                       event.category && event.category.toLowerCase() === 'homework' ? styles.homeworkEvent :
                       event.category && event.category.toLowerCase() === 'project' ? styles.projectEvent :
                       event.category && event.category.toLowerCase() === 'presentation' ? styles.presentationEvent : styles.assignmentEvent)
                     : styles.studyEvent
-                ]}
-              >
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.eventTime}>{event.time}</Text>
-                {event.description && (
-                  <Text style={styles.eventDescription}>{event.description}</Text>
-                )}
+              ]}
+            >
+              <Text style={styles.eventTitle}>{event.title}</Text>
+              <Text style={styles.eventTime}>{event.time}</Text>
+              {event.description && (
+                <Text style={styles.eventDescription}>{event.description}</Text>
+              )}
                 {event.url && (
                   <Text style={styles.eventLink} onPress={() => Linking.openURL(event.url)}>
                     Open in Canvas
                   </Text>
-                )}
-                {event.duration && (
-                  <Text style={styles.eventDuration}>Duration: {event.duration}</Text>
-                )}
-                <View style={[
-                  styles.eventTypeBadge,
+              )}
+              {event.duration && (
+                <Text style={styles.eventDuration}>Duration: {event.duration}</Text>
+              )}
+              <View style={[
+                styles.eventTypeBadge,
                   event.type === 'assignment' ?
                     (event.category && event.category.toLowerCase() === 'exam' ? styles.examBadge :
                       event.category && event.category.toLowerCase() === 'homework' ? styles.homeworkBadge :
                       event.category && event.category.toLowerCase() === 'project' ? styles.projectBadge :
                       event.category && event.category.toLowerCase() === 'presentation' ? styles.presentationBadge : styles.assignmentBadge)
                     : styles.studyBadge
-                ]}>
-                  <Text style={styles.eventTypeText}>
+              ]}>
+                <Text style={styles.eventTypeText}>
                     {event.type === 'assignment' ? (event.category ? event.category.charAt(0).toUpperCase() + event.category.slice(1) : 'Assignment') : 'Study Block'}
-                  </Text>
-                </View>
+                </Text>
               </View>
-            ))
-          )}
-        </ScrollView>
+            </View>
+          ))
+        )}
+      </ScrollView>
       )}
 
       {/* Add Assignment Modal */}
@@ -1403,6 +1502,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196f3',
     borderRadius: 8,
     width: '0%',
+  },
+  progressFillHomework: {
+    backgroundColor: '#43a047',
+  },
+  progressFillExam: {
+    backgroundColor: '#e53935',
+  },
+  progressFillProject: {
+    backgroundColor: '#fb8c00',
+  },
+  progressFillPresentation: {
+    backgroundColor: '#8e24aa',
+  },
+  weekItem: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  weekItemCompleted: {
+    opacity: 0.6,
+    textDecorationLine: 'line-through',
+  },
+  weekItemInProgress: {
+    backgroundColor: '#fffde7',
+  },
+  weekItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  weekItemTitleCompleted: {
+    textDecorationLine: 'line-through',
+  },
+  weekItemMeta: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
+    marginBottom: 8,
   },
   saveChangesSection: {
     marginBottom: 20,
