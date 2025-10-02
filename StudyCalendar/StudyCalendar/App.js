@@ -567,23 +567,7 @@ useEffect(() => {
     return all.filter(item => {
       if (filterClass && item.course !== filterClass) return false;
       if (filterCategory && (item.category || '').toLowerCase() !== filterCategory.toLowerCase()) return false;
-      
-      // Use daysFromToday range if set, otherwise fall back to other date filters
-      if (daysFromToday !== null && daysFromToday !== undefined) {
-        const today = new Date().toISOString().split('T')[0];
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + daysFromToday);
-        const endDateStr = endDate.toISOString().split('T')[0];
-        
-        if (item._date < today) return false;
-        if (item._date > endDateStr) return false;
-      } else {
-        // Fallback to original date filtering
-        const from = customFrom || filterFrom;
-        const to = customTo || filterTo;
-        if (from && (item._date < from)) return false;
-        if (to && (item._date > to)) return false;
-      }
+      // Temporarily relax date filtering for debugging visibility
       
       return true;
     }).sort((a, b) => a._date.localeCompare(b._date));
@@ -969,7 +953,7 @@ useEffect(() => {
           </ScrollView>
         </View>
       ) : (
-        <View style={styles.listContainer}>
+        <View style={[styles.listContainer, { flex: 1 }]}>
           <View style={styles.listHeader}>
             <Text style={styles.listTitle}>Progress Dashboard</Text>
           </View>
@@ -983,11 +967,15 @@ useEffect(() => {
             </TouchableOpacity>
           </View>
 
+          {/* Log assignments for debugging */}
+          {(() => { const assignments = getAllAssignments(); console.log("Assignments in dashboard:", assignments); return null; })()}
+
           {/* Overall Progress */}
           <View style={styles.progressCard}>
             <Text style={styles.progressTitle}>Overall Progress</Text>
             {(() => {
               const all = getAllAssignments();
+              if (all.length === 0) return <Text style={styles.progressMeta}>No assignments loaded yet</Text>;
               const total = all.length;
               const completed = all.filter(a => (statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed').length;
               const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -1050,7 +1038,7 @@ useEffect(() => {
           </View>
 
           {/* Weekly Assignments */}
-          <View style={styles.progressCard}>
+          <View style={[styles.progressCard, { maxHeight: 600 }]}> 
             <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 8}}>
               <Text style={styles.progressTitle}>This Week's Assignments</Text>
               <View style={styles.modernPickerContainer}>
@@ -1069,9 +1057,9 @@ useEffect(() => {
               const weekly = progressViewMode === 'weekly' ? getThisWeekAssignments() : getAllAssignments();
               const groups = groupByDate(weekly);
               const dates = Object.keys(groups).sort();
-              if (dates.length === 0) return <Text style={styles.progressMeta}>No assignments in this period.</Text>;
+              if (dates.length === 0) return <Text style={styles.progressMeta}>No assignments loaded yet</Text>;
               return (
-                <View>
+                <ScrollView style={{maxHeight: 540}}>
                   {dates.map(date => (
                     <View key={date} style={{ marginBottom: 12 }}>
                       <Text style={[styles.progressMeta, {fontWeight:'600', color:'#333'}]}>{date}</Text>
@@ -1112,7 +1100,7 @@ useEffect(() => {
                       })}
                     </View>
                   ))}
-                </View>
+                </ScrollView>
               );
             })()}
           </View>
