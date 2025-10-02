@@ -956,7 +956,7 @@ useEffect(() => {
                         <View style={styles.modernPickerContainer}>
                           <Picker
                             selectedValue={st}
-                            onValueChange={(val) => setAssignmentStatus(prev => ({ ...prev, [key]: val }))}
+                            onValueChange={(val) => { setAssignmentStatus(key, val); }}
                             dropdownIconColor="#2196f3"
                             style={styles.modernPicker}
                           >
@@ -1118,19 +1118,19 @@ useEffect(() => {
                             <View style={styles.statusRow}>
                               <TouchableOpacity
                                 style={[styles.statusBtn, st === 'not_started' && styles.statusBtnActiveDefault]}
-                                onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'not_started' }))}
+                                onPress={() => setAssignmentStatus(key, 'not_started')}
                               >
                                 <Text style={[styles.statusBtnText, st === 'not_started' && styles.statusBtnTextActive]}>❌ Not Started</Text>
                               </TouchableOpacity>
                               <TouchableOpacity
                                 style={[styles.statusBtn, st === 'in_progress' && styles.statusBtnActiveInProgress]}
-                                onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'in_progress' }))}
+                                onPress={() => setAssignmentStatus(key, 'in_progress')}
                               >
                                 <Text style={[styles.statusBtnText, st === 'in_progress' && styles.statusBtnTextActive]}>⏳ In Progress</Text>
                               </TouchableOpacity>
                               <TouchableOpacity
                                 style={[styles.statusBtn, st === 'completed' && styles.statusBtnActiveCompleted]}
-                                onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'completed' }))}
+                                onPress={() => setAssignmentStatus(key, 'completed')}
                               >
                                 <Text style={[styles.statusBtnText, st === 'completed' && styles.statusBtnTextActive]}>✅ Completed</Text>
                               </TouchableOpacity>
@@ -1169,19 +1169,19 @@ useEffect(() => {
                   <View style={styles.statusRow}>
                     <TouchableOpacity
                       style={[styles.statusBtn, st === 'not_started' && styles.statusBtnActiveDefault]}
-                      onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'not_started' }))}
+                      onPress={() => setAssignmentStatus(key, 'not_started')}
                     >
                       <Text style={[styles.statusBtnText, st === 'not_started' && styles.statusBtnTextActive]}>❌ Not Started</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.statusBtn, st === 'in_progress' && styles.statusBtnActiveInProgress]}
-                      onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'in_progress' }))}
+                      onPress={() => setAssignmentStatus(key, 'in_progress')}
                     >
                       <Text style={[styles.statusBtnText, st === 'in_progress' && styles.statusBtnTextActive]}>⏳ In Progress</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.statusBtn, st === 'completed' && styles.statusBtnActiveCompleted]}
-                      onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'completed' }))}
+                      onPress={() => setAssignmentStatus(key, 'completed')}
                     >
                       <Text style={[styles.statusBtnText, st === 'completed' && styles.statusBtnTextActive]}>✅ Completed</Text>
                     </TouchableOpacity>
