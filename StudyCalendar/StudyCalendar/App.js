@@ -1042,9 +1042,16 @@ useEffect(() => {
           <View style={styles.progressCard}>
             <Text style={styles.progressTitle}>By Category</Text>
             {(['homework','exam','project','presentation']).map(cat => {
-              const all = getAllAssignments().filter(a => (a.category || '').toLowerCase() === cat);
+              const all = getAllAssignments().filter(a => {
+                const explicit = (a.category || '').toLowerCase();
+                const inferred = detectCategory(a.title || '');
+                const actual = explicit || inferred;
+                return actual === cat;
+              });
               const total = all.length;
-              const completed = all.filter(a => (statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed').length;
+              const completed = all.filter(a => (
+                (assignmentStatus[`${a._date}_${a.title}`] || statusMap[`${a._date}_${a.title}`] || 'not_started')
+              ) === 'completed').length;
               const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
               return (
                 <View key={cat} style={{ marginBottom: 12 }}>
@@ -1068,20 +1075,26 @@ useEffect(() => {
           {/* By Course */}
           <View style={styles.progressCard}>
             <Text style={styles.progressTitle}>By Course</Text>
-            {Array.from(new Set(getAllAssignments().map(a => a.course).filter(Boolean))).map(course => {
-              const all = getAllAssignments().filter(a => a.course === course);
-              const total = all.length;
-              const completed = all.filter(a => (statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed').length;
-              const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-              return (
-                <View key={course} style={{ marginBottom: 12 }}>
-                  <Text style={styles.progressMeta}>{course}: {completed}/{total}</Text>
-                  <View style={styles.progressBarTrack}>
-                    <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
+            {(() => {
+              const all = getAllAssignments();
+              const courseNames = Array.from(new Set(all.map(a => (a.course || a.courseName || 'Unknown')).filter(Boolean))).sort();
+              return courseNames.map(course => {
+                const group = all.filter(a => (a.course || a.courseName || 'Unknown') === course);
+                const total = group.length;
+                const completed = group.filter(a => (
+                  (assignmentStatus[`${a._date}_${a.title}`] || statusMap[`${a._date}_${a.title}`] || 'not_started')
+                ) === 'completed').length;
+                const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                return (
+                  <View key={course} style={{ marginBottom: 12 }}>
+                    <Text style={styles.progressMeta}>{course}: {completed}/{total}</Text>
+                    <View style={styles.progressBarTrack}>
+                      <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              });
+            })()}
           </View>
 
           {/* Weekly Assignments */}
