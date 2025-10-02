@@ -4,6 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Calendar } from 'react-native-calendars';
 import ICAL from 'ical.js';
 import EventsList from './components/EventsList';
+import { useAssignments } from './AssignmentsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ICS feed URL (replace with your real one)
@@ -19,6 +20,7 @@ const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKs
 const ASSIGNMENTS_API_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKsProThdJyZmKug2oIu9wZ7_5ut0agvLLfJibGD18IoDXVCwZb1B-TEgg/exec";
 
 export default function App() {
+  const { assignmentStatus, setAssignmentStatus } = useAssignments();
   const [events, setEvents] = useState({});
   const [courses, setCourses] = useState({});
   const [studyBlocks, setStudyBlocks] = useState({});
@@ -53,7 +55,7 @@ export default function App() {
   const [statusMap, setStatusMap] = useState({}); // key: `${date}_${title}` => status
   const [progressViewMode, setProgressViewMode] = useState('weekly'); // 'weekly' | 'monthly'
   const [completedAssignments, setCompletedAssignments] = useState({}); // key: `${date}_${title}` => boolean
-  const [assignmentStatus, setAssignmentStatus] = useState({}); // key: `${date}_${title}` => 'not_started' | 'in_progress' | 'completed'
+  // assignmentStatus moved to context
   const STORAGE_KEYS = {
     events: 'events',
     courses: 'courses',
@@ -923,7 +925,6 @@ useEffect(() => {
                   >
                     <View style={styles.assignmentHeader}>
                       <Text style={[styles.modernAssignmentTitle, st === 'completed' ? { textDecorationLine: 'line-through', color: '#2e7d32' } : null]}>
-                        {st === 'completed' ? '✅ ' : st === 'in_progress' ? '⏳ ' : '❌ '}
                         {assignmentWithChanges.title}
                       </Text>
                       <View style={styles.assignmentMeta}>
@@ -1035,7 +1036,6 @@ useEffect(() => {
               return (
                 <View key={cat} style={{ marginBottom: 12 }}>
                   <Text style={styles.progressMeta}>
-                    {(cat === 'homework' ? '📘 ' : cat === 'exam' ? '🧪 ' : cat === 'project' ? '📝 ' : '🎤 ')}
                     {cat.charAt(0).toUpperCase() + cat.slice(1)}: {completed}/{total}
                   </Text>
                   <View style={styles.progressBarTrack}>
@@ -1106,8 +1106,7 @@ useEffect(() => {
                         return (
                           <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress, completed && {backgroundColor:'#e8f5e9'}]}>
                             <Text style={[styles.weekItemTitle, faded && styles.weekItemTitleCompleted]}>
-                              {(a.category || '').toLowerCase() === 'homework' ? '📘 ' : (a.category||'').toLowerCase()==='exam' ? '🧪 ' : (a.category||'').toLowerCase()==='project' ? '📝 ' : (a.category||'').toLowerCase()==='presentation' ? '🎤 ' : ''}
-                              {completed ? '✅ ' : st === 'in_progress' ? '⏳ ' : ''}{a.title}
+                              {a.title}
                             </Text>
                             <Text style={styles.weekItemMeta}>{a.course ? `${a.course} • ` : ''}{a._date} {a.time || ''}</Text>
                             <View style={{flexDirection:'row', alignItems:'center', marginBottom:8}}>
@@ -1158,7 +1157,7 @@ useEffect(() => {
               return (
                 <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress, completed && {backgroundColor:'#e8f5e9'}]}>
                   <Text style={[styles.weekItemTitle, faded && styles.weekItemTitleCompleted]}>
-                    {completed ? '✅ ' : st === 'in_progress' ? '⏳ ' : ''}{a.title} {a.course ? `• ${a.course}` : ''}
+                    {a.title} {a.course ? `• ${a.course}` : ''}
                   </Text>
                   <Text style={styles.weekItemMeta}>{a._date} {a.time || ''}</Text>
                   <View style={{flexDirection:'row', alignItems:'center', marginBottom:8}}>
