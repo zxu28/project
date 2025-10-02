@@ -1087,17 +1087,25 @@ useEffect(() => {
                               {a.title}
                             </Text>
                             <Text style={styles.weekItemMeta}>{a.course ? `${a.course} • ` : ''}{a._date} {a.time || ''}</Text>
-                            <View style={styles.modernPickerContainer}>
-                              <Picker
-                                selectedValue={st}
-                                onValueChange={(val) => setStatusMap(prev => ({ ...prev, [key]: val }))}
-                                dropdownIconColor="#2196f3"
-                                style={styles.modernPicker}
+                            <View style={styles.statusRow}>
+                              <TouchableOpacity
+                                style={[styles.statusBtn, st === 'not_started' && styles.statusBtnActiveDefault]}
+                                onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'not_started' }))}
                               >
-                                <Picker.Item label="Not Started" value="not_started" />
-                                <Picker.Item label="In Progress" value="in_progress" />
-                                <Picker.Item label="Completed" value="completed" />
-                              </Picker>
+                                <Text style={[styles.statusBtnText, st === 'not_started' && styles.statusBtnTextActive]}>❌ Not Started</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.statusBtn, st === 'in_progress' && styles.statusBtnActiveInProgress]}
+                                onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'in_progress' }))}
+                              >
+                                <Text style={[styles.statusBtnText, st === 'in_progress' && styles.statusBtnTextActive]}>⏳ In Progress</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.statusBtn, st === 'completed' && styles.statusBtnActiveCompleted]}
+                                onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'completed' }))}
+                              >
+                                <Text style={[styles.statusBtnText, st === 'completed' && styles.statusBtnTextActive]}>✅ Completed</Text>
+                              </TouchableOpacity>
                             </View>
                           </View>
                         );
@@ -1115,20 +1123,33 @@ useEffect(() => {
             {getAllAssignments().map((a, idx) => {
               const key = `${a._date}_${a.title}`;
               const st = statusMap[key] || 'not_started';
+              const faded = st === 'completed';
+              const highlighted = st === 'in_progress';
               return (
-                <View key={key + idx} style={{ marginBottom: 12 }}>
-                  <Text style={styles.progressMeta}>{a.title} • {a._date} {a.time || ''} {a.course ? `• ${a.course}` : ''}</Text>
-                  <View style={styles.modernPickerContainer}>
-                    <Picker
-                      selectedValue={st}
-                      onValueChange={(val) => setStatusMap(prev => ({ ...prev, [key]: val }))}
-                      dropdownIconColor="#2196f3"
-                      style={styles.modernPicker}
+                <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress]}>
+                  <Text style={[styles.weekItemTitle, faded && styles.weekItemTitleCompleted]}>
+                    {a.title} {a.course ? `• ${a.course}` : ''}
+                  </Text>
+                  <Text style={styles.weekItemMeta}>{a._date} {a.time || ''}</Text>
+                  <View style={styles.statusRow}>
+                    <TouchableOpacity
+                      style={[styles.statusBtn, st === 'not_started' && styles.statusBtnActiveDefault]}
+                      onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'not_started' }))}
                     >
-                      <Picker.Item label="Not Started" value="not_started" />
-                      <Picker.Item label="In Progress" value="in_progress" />
-                      <Picker.Item label="Completed" value="completed" />
-                    </Picker>
+                      <Text style={[styles.statusBtnText, st === 'not_started' && styles.statusBtnTextActive]}>❌ Not Started</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.statusBtn, st === 'in_progress' && styles.statusBtnActiveInProgress]}
+                      onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'in_progress' }))}
+                    >
+                      <Text style={[styles.statusBtnText, st === 'in_progress' && styles.statusBtnTextActive]}>⏳ In Progress</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.statusBtn, st === 'completed' && styles.statusBtnActiveCompleted]}
+                      onPress={() => setStatusMap(prev => ({ ...prev, [key]: 'completed' }))}
+                    >
+                      <Text style={[styles.statusBtnText, st === 'completed' && styles.statusBtnTextActive]}>✅ Completed</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
@@ -1543,6 +1564,39 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
     marginBottom: 8,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusBtn: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+  },
+  statusBtnText: {
+    fontSize: 13,
+    color: '#555',
+  },
+  statusBtnTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  statusBtnActiveDefault: {
+    backgroundColor: '#9e9e9e',
+    borderColor: '#9e9e9e',
+  },
+  statusBtnActiveInProgress: {
+    backgroundColor: '#fdd835',
+    borderColor: '#fdd835',
+  },
+  statusBtnActiveCompleted: {
+    backgroundColor: '#43a047',
+    borderColor: '#43a047',
   },
   saveChangesSection: {
     marginBottom: 20,
