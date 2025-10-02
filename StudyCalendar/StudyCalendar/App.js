@@ -53,6 +53,7 @@ export default function App() {
   const [statusMap, setStatusMap] = useState({}); // key: `${date}_${title}` => status
   const [progressViewMode, setProgressViewMode] = useState('weekly'); // 'weekly' | 'monthly'
   const [completedAssignments, setCompletedAssignments] = useState({}); // key: `${date}_${title}` => boolean
+  const [assignmentStatus, setAssignmentStatus] = useState({}); // key: `${date}_${title}` => 'not_started' | 'in_progress' | 'completed'
   const STORAGE_KEYS = {
     events: 'events',
     courses: 'courses',
@@ -537,6 +538,7 @@ useEffect(() => {
   };
   const isCompleted = (key) => {
     if (typeof completedAssignments[key] !== 'undefined') return !!completedAssignments[key];
+    if (assignmentStatus[key]) return assignmentStatus[key] === 'completed';
     return (statusMap[key] || 'not_started') === 'completed';
   };
 
@@ -908,14 +910,22 @@ useEffect(() => {
             ) : (
               getAllAssignments().map((assignment, idx) => {
                 const assignmentWithChanges = getAssignmentWithLocalChanges(assignment);
+                const key = `${assignmentWithChanges._date}_${assignmentWithChanges.title}`;
+                const st = assignmentStatus[key] || statusMap[key] || 'not_started';
                 return (
                   <TouchableOpacity 
                     key={assignment._date + assignment.title + idx} 
-                    style={styles.modernAssignmentCard}
+                    style={[styles.modernAssignmentCard,
+                      st === 'completed' ? { backgroundColor: '#e8f5e9' } :
+                      st === 'in_progress' ? { backgroundColor: '#fffde7' } : null
+                    ]}
                     activeOpacity={0.7}
                   >
                     <View style={styles.assignmentHeader}>
-                      <Text style={styles.modernAssignmentTitle}>{assignmentWithChanges.title}</Text>
+                      <Text style={[styles.modernAssignmentTitle, st === 'completed' ? { textDecorationLine: 'line-through', color: '#2e7d32' } : null]}>
+                        {st === 'completed' ? '✅ ' : st === 'in_progress' ? '⏳ ' : '❌ '}
+                        {assignmentWithChanges.title}
+                      </Text>
                       <View style={styles.assignmentMeta}>
                         <Text style={styles.assignmentDueDate}>
                           Due: {assignmentWithChanges._date} at {assignmentWithChanges.time}
@@ -940,6 +950,21 @@ useEffect(() => {
                     )}
 
                     <View style={styles.categorySection}>
+                      <View style={{flexDirection:'row', alignItems:'center', marginBottom:8}}>
+                        <Text style={{fontSize: 14, marginRight: 8}}>Status:</Text>
+                        <View style={styles.modernPickerContainer}>
+                          <Picker
+                            selectedValue={st}
+                            onValueChange={(val) => setAssignmentStatus(prev => ({ ...prev, [key]: val }))}
+                            dropdownIconColor="#2196f3"
+                            style={styles.modernPicker}
+                          >
+                            <Picker.Item label="Not Started" value="not_started" />
+                            <Picker.Item label="In Progress" value="in_progress" />
+                            <Picker.Item label="Completed" value="completed" />
+                          </Picker>
+                        </View>
+                      </View>
                       <Text style={styles.categoryLabel}>Category</Text>
                       <View style={styles.categoryPickerContainer}>
                         <Picker
@@ -977,7 +1002,7 @@ useEffect(() => {
           </View>
 
           {/* Log assignments and completed state for debugging */}
-          {(() => { const assignments = getAllAssignments(); console.log("Assignments in dashboard:", assignments); console.log("Completed state:", completedAssignments); return null; })()}
+          {(() => { const assignments = getAllAssignments(); console.log("Assignments in dashboard:", assignments); console.log("Completed state:", completedAssignments); console.log("Assignment Statuses:", assignmentStatus); return null; })()}
 
           {/* Overall Progress */}
           <View style={styles.progressCard}>
