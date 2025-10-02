@@ -570,7 +570,7 @@ useEffect(() => {
     const all = [];
     Object.keys(events).forEach(date => {
       (events[date]?.assignments || []).forEach(item => {
-        if (item.type === 'assignment' && item.source === 'canvas') {
+        if (item.type === 'assignment') {
           all.push({ ...item, _date: date });
         }
       });
@@ -580,8 +580,20 @@ useEffect(() => {
     return all.filter(item => {
       if (filterClass && item.course !== filterClass) return false;
       if (filterCategory && (item.category || '').toLowerCase() !== filterCategory.toLowerCase()) return false;
-      // Temporarily relax date filtering for debugging visibility
-      
+      // Apply date filtering using daysFromToday when set
+      if (typeof daysFromToday === 'number' && daysFromToday >= 0) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const end = new Date();
+        end.setDate(end.getDate() + daysFromToday);
+        const endStr = end.toISOString().split('T')[0];
+        if (item._date < todayStr) return false;
+        if (item._date > endStr) return false;
+      } else {
+        const from = customFrom || filterFrom;
+        const to = customTo || filterTo;
+        if (from && (item._date < from)) return false;
+        if (to && (item._date > to)) return false;
+      }
       return true;
     }).sort((a, b) => a._date.localeCompare(b._date));
   };
@@ -1010,9 +1022,10 @@ useEffect(() => {
             <Text style={styles.progressTitle}>Overall Progress</Text>
             {(() => {
               const all = getAllAssignments();
+              console.log('Progress view assignments count:', all.length);
               if (all.length === 0) return <Text style={styles.progressMeta}>No assignments loaded yet</Text>;
               const total = all.length;
-              const completed = all.filter(a => (statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed').length;
+              const completed = all.filter(a => ((assignmentStatus[`${a._date}_${a.title}`] || statusMap[`${a._date}_${a.title}`] || 'not_started') === 'completed')).length;
               const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
               return (
                 <View>
