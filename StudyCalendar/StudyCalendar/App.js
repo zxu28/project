@@ -52,6 +52,7 @@ export default function App() {
   // Track per-assignment status: 'not_started' | 'in_progress' | 'completed'
   const [statusMap, setStatusMap] = useState({}); // key: `${date}_${title}` => status
   const [progressViewMode, setProgressViewMode] = useState('weekly'); // 'weekly' | 'monthly'
+  const [completedAssignments, setCompletedAssignments] = useState({}); // key: `${date}_${title}` => boolean
   const STORAGE_KEYS = {
     events: 'events',
     courses: 'courses',
@@ -534,6 +535,14 @@ useEffect(() => {
     const eowStr = eow.toISOString().split('T')[0];
     return getAllAssignments().filter(a => a._date >= sowStr && a._date <= eowStr);
   };
+  const isCompleted = (key) => {
+    if (typeof completedAssignments[key] !== 'undefined') return !!completedAssignments[key];
+    return (statusMap[key] || 'not_started') === 'completed';
+  };
+
+  const toggleCompleted = (key) => {
+    setCompletedAssignments(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const groupByDate = (assignments) => {
     return assignments.reduce((acc, a) => {
@@ -967,8 +976,8 @@ useEffect(() => {
             </TouchableOpacity>
           </View>
 
-          {/* Log assignments for debugging */}
-          {(() => { const assignments = getAllAssignments(); console.log("Assignments in dashboard:", assignments); return null; })()}
+          {/* Log assignments and completed state for debugging */}
+          {(() => { const assignments = getAllAssignments(); console.log("Assignments in dashboard:", assignments); console.log("Completed state:", completedAssignments); return null; })()}
 
           {/* Overall Progress */}
           <View style={styles.progressCard}>
@@ -1066,15 +1075,22 @@ useEffect(() => {
                       {groups[date].map((a, idx) => {
                         const key = `${a._date}_${a.title}`;
                         const st = statusMap[key] || 'not_started';
-                        const faded = st === 'completed';
-                        const highlighted = st === 'in_progress';
+                        const completed = isCompleted(key);
+                        const faded = completed;
+                        const highlighted = st === 'in_progress' && !completed;
                         return (
-                          <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress]}>
+                          <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress, completed && {backgroundColor:'#e8f5e9'}]}>
                             <Text style={[styles.weekItemTitle, faded && styles.weekItemTitleCompleted]}>
                               {(a.category || '').toLowerCase() === 'homework' ? '📘 ' : (a.category||'').toLowerCase()==='exam' ? '🧪 ' : (a.category||'').toLowerCase()==='project' ? '📝 ' : (a.category||'').toLowerCase()==='presentation' ? '🎤 ' : ''}
-                              {a.title}
+                              {completed ? '✅ ' : st === 'in_progress' ? '⏳ ' : ''}{a.title}
                             </Text>
                             <Text style={styles.weekItemMeta}>{a.course ? `${a.course} • ` : ''}{a._date} {a.time || ''}</Text>
+                            <View style={{flexDirection:'row', alignItems:'center', marginBottom:8}}>
+                              <TouchableOpacity onPress={() => toggleCompleted(key)} style={[styles.checkbox, completed && styles.checkboxChecked]}>
+                                {completed ? <Text style={{color:'#fff'}}>✓</Text> : null}
+                              </TouchableOpacity>
+                              <Text style={{marginLeft:8, color: completed ? '#2e7d32' : '#333', textDecorationLine: completed ? 'line-through' : 'none'}}>{a.title}</Text>
+                            </View>
                             <View style={styles.statusRow}>
                               <TouchableOpacity
                                 style={[styles.statusBtn, st === 'not_started' && styles.statusBtnActiveDefault]}
@@ -1111,14 +1127,21 @@ useEffect(() => {
             {getAllAssignments().map((a, idx) => {
               const key = `${a._date}_${a.title}`;
               const st = statusMap[key] || 'not_started';
-              const faded = st === 'completed';
-              const highlighted = st === 'in_progress';
+              const completed = isCompleted(key);
+              const faded = completed;
+              const highlighted = st === 'in_progress' && !completed;
               return (
-                <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress]}>
+                <View key={key + idx} style={[styles.weekItem, faded && styles.weekItemCompleted, highlighted && styles.weekItemInProgress, completed && {backgroundColor:'#e8f5e9'}]}>
                   <Text style={[styles.weekItemTitle, faded && styles.weekItemTitleCompleted]}>
-                    {a.title} {a.course ? `• ${a.course}` : ''}
+                    {completed ? '✅ ' : st === 'in_progress' ? '⏳ ' : ''}{a.title} {a.course ? `• ${a.course}` : ''}
                   </Text>
                   <Text style={styles.weekItemMeta}>{a._date} {a.time || ''}</Text>
+                  <View style={{flexDirection:'row', alignItems:'center', marginBottom:8}}>
+                    <TouchableOpacity onPress={() => toggleCompleted(key)} style={[styles.checkbox, completed && styles.checkboxChecked]}>
+                      {completed ? <Text style={{color:'#fff'}}>✓</Text> : null}
+                    </TouchableOpacity>
+                    <Text style={{marginLeft:8, color: completed ? '#2e7d32' : '#333', textDecorationLine: completed ? 'line-through' : 'none'}}>{a.title}</Text>
+                  </View>
                   <View style={styles.statusRow}>
                     <TouchableOpacity
                       style={[styles.statusBtn, st === 'not_started' && styles.statusBtnActiveDefault]}
@@ -1583,6 +1606,20 @@ const styles = StyleSheet.create({
     borderColor: '#fdd835',
   },
   statusBtnActiveCompleted: {
+    backgroundColor: '#43a047',
+    borderColor: '#43a047',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#9e9e9e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: {
     backgroundColor: '#43a047',
     borderColor: '#43a047',
   },
