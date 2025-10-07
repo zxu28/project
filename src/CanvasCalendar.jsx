@@ -4,8 +4,10 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { CANVAS_CONFIG, buildCanvasUrl } from './config/canvas';
 
+import { enUS } from 'date-fns/locale';
+
 const locales = {
-  'en-US': require('date-fns/locale/en-US')
+  'en-US': enUS
 };
 
 const localizer = dateFnsLocalizer({
@@ -19,6 +21,7 @@ const localizer = dateFnsLocalizer({
 function CanvasCalendar() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAssignment, setNewAssignment] = useState({
     title: '',
@@ -28,6 +31,7 @@ function CanvasCalendar() {
   });
 
   useEffect(() => {
+    console.log('CanvasCalendar component mounted');
     fetchCanvasEvents();
   }, []);
 
@@ -43,15 +47,56 @@ function CanvasCalendar() {
       
       console.log('Canvas API URL:', calendarUrl);
       
-      const response = await fetch(calendarUrl, {
-        headers: {
-          'Authorization': `Bearer ${CANVAS_CONFIG.apiToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Try direct fetch first, then proxy if CORS fails
+      let response;
+      try {
+        response = await fetch(calendarUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${CANVAS_CONFIG.apiToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          mode: 'cors'
+        });
+      } catch (corsError) {
+        console.warn('Direct fetch failed (likely CORS), trying proxy:', corsError.message);
+        
+        // Try using Vite proxy
+        const proxyUrl = `/api/canvas${CANVAS_CONFIG.endpoints.calendarEvents}?${new URLSearchParams({
+          per_page: '100',
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        }).toString()}`;
+        
+        console.log('Trying proxy URL:', proxyUrl);
+        
+        response = await fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${CANVAS_CONFIG.apiToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+      }
+      
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
-        throw new Error(`Canvas API error: ${response.status} ${response.statusText}`);
+        let errorMessage = `Canvas API error: ${response.status} ${response.statusText}`;
+        
+        // Try to get more detailed error information
+        try {
+          const errorData = await response.text();
+          console.error('Error response body:', errorData);
+          errorMessage += ` - ${errorData}`;
+        } catch (e) {
+          console.error('Could not read error response:', e);
+        }
+        
+        throw new Error(errorMessage);
       }
       
       const canvasEvents = await response.json();
@@ -83,12 +128,27 @@ function CanvasCalendar() {
       });
 
       console.log('Parsed calendar events:', calendarEvents.length);
+      
+      // Add a sample event if no Canvas events found (for demo purposes)
+      if (calendarEvents.length === 0) {
+        console.log('No Canvas events found, adding sample event');
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        calendarEvents.push({
+          title: 'Sample Assignment (No Canvas events found)',
+          start: tomorrow,
+          end: tomorrow,
+          type: 'assignment'
+        });
+      }
+      
       // Step 4: Save these into state with setEvents
       setEvents(calendarEvents);
       setLoading(false);
       
     } catch (error) {
       console.error('Error fetching Canvas events:', error);
+      setError(error.message);
       setLoading(false);
     }
   };
@@ -155,6 +215,30 @@ function CanvasCalendar() {
         fontSize: '18px'
       }}>
         Loading Canvas events...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px',
+        color: 'red',
+        flexDirection: 'column'
+      }}>
+        <h2>Error Loading Calendar</h2>
+        <p>{error}</p>
+        <button onClick={() => {
+          setError(null);
+          setLoading(true);
+          fetchCanvasEvents();
+        }} style={{ marginTop: '20px', padding: '10px 20px' }}>
+          Retry
+        </button>
       </div>
     );
   }
