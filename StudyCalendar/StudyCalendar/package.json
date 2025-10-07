@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "expo start --web"
+    "start": "expo start --web",
+    "web": "expo start --web",
+    "export:web": "expo export -p web --output-dir web-build",
+    "predeploy": "npm run export:web && node fix-paths.js",
+    "deploy": "gh-pages -d web-build"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.1",
@@ -17,5 +21,9 @@
     "react-native-calendars": "^1.1313.0",
     "react-native-web": "^0.21.0"
   },
-  "private": true
+  "private": true,
+  "homepage": "https://zxu28.github.io/project",
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  }
 }

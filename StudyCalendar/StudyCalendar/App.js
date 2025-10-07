@@ -10,14 +10,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ICS feed URL (replace with your real one)
 const ICS_URL = "https://pomfret.instructure.com/feeds/calendars/user_U5a3dGrIE7Y45lSX7KUDM87bRYen3k9NWxyuvQOn.ics";
 // Google Apps Script Web App URL (set your deployed URL to enable Google events)
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_7O8E568a9rGV5dhciRnH81KOFGfDXBFzyH__z7kIYbvX03wkbJzAXdlBdO11Zbz0/exec';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzE4rehEqlWu0ONiWJuV4beyY5IMZQHgZDhbeLoxhB2Qe52E3aDVmfkyKaEVlB8QoVh/exec';
 const CANVAS_API_TOKEN = "22006~HwPkvfka8H4N4KhvnhALtHkzQGQfAQYAQFNzzyJXYL9wRwZURaHzu4Wy47vYVYnA";
 // IMPORTANT: set this to your institution host, e.g., https://<school>.instructure.com/api/v1
 const CANVAS_BASE_URL = "https://pomfret.instructure.com/api/v1";
 // Optional: set a proxy URL (e.g., Apps Script) to bypass CORS and attach token server-side
-const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKsProThdJyZmKug2oIu9wZ7_5ut0agvLLfJibGD18IoDXVCwZb1B-TEgg/exec";
+const CANVAS_PROXY_URL = "https://script.google.com/macros/s/AKfycbwXa3uV9qmNXF4rXL398gb8X6LvFqdZsRaEs14aCAlb_TJXx0BjHLP1s2XpP2DAuqrvpg/exec";
 // Unified assignments API (Google Apps Script deployment)
-const ASSIGNMENTS_API_URL = "https://script.google.com/macros/s/AKfycbwxQoaSb94JLKsProThdJyZmKug2oIu9wZ7_5ut0agvLLfJibGD18IoDXVCwZb1B-TEgg/exec";
+const ASSIGNMENTS_API_URL = "https://script.google.com/macros/s/AKfycbwXa3uV9qmNXF4rXL398gb8X6LvFqdZsRaEs14aCAlb_TJXx0BjHLP1s2XpP2DAuqrvpg/exec";
 
 export default function App() {
   const { assignmentStatus, setAssignmentStatus } = useAssignments();
@@ -144,6 +144,13 @@ useEffect(() => {
       const url = `${CANVAS_PROXY_URL}?endpoint=courses&per_page=100&enrollment_state=active`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.warn("Invalid Canvas response: not JSON");
+        return;
+      }
+      
       const data = await res.json();
 
       const courseMap = {};
@@ -156,6 +163,7 @@ useEffect(() => {
       setCourses(courseMap);
     } catch (error) {
       console.error("Error fetching Canvas courses:", error);
+      console.warn("Canvas courses fetch failed - app will continue without course data");
     }
   };
 
@@ -211,7 +219,8 @@ useEffect(() => {
       });
     } catch (error) {
       console.error('Error parsing ICS:', error);
-      Alert.alert('Error', 'Failed to load calendar events');
+      console.warn('ICS calendar feed failed - app will continue without calendar events');
+      Alert.alert('Warning', 'Failed to load calendar events. The app will continue without them.');
     }
   };
 
@@ -261,6 +270,7 @@ useEffect(() => {
       });
     } catch (error) {
       console.error('Error fetching Google events:', error);
+      console.warn('Google Calendar integration failed - app will continue without Google events');
     }
   };
 
@@ -353,6 +363,7 @@ useEffect(() => {
       setAssignmentsLoadError(false);
     } catch (error) {
       console.error('Error fetching Canvas assignments:', error);
+      console.warn('Canvas assignments fetch failed - app will continue without assignment data');
       setAssignmentsLoadError(true);
     }
   };
